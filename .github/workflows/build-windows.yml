@@ -26,6 +26,8 @@ jobs:
 
       - name: 下载 AI 模型
         run: python download_models.py
+        env:
+          PYTHONUTF8: "1"
 
       - name: 打包为 .exe
         run: |
