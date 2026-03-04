@@ -1,0 +1,17 @@
+
+# 模型文件太大，不上传到 GitHub
+models/
+
+# PyInstaller 构建产物
+build/
+dist/
+*.spec
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv311/
+
+# macOS
+.DS_Store
