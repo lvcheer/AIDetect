@@ -48,9 +48,10 @@ class MultiModelAIDetectorGUI:
         # 初始化变量
         self.detector = None
         self.model_list = {
-            "中文优先（RoBERTa）": "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
-            "英文优先（OpenAI Detector）": "roberta-base-openai-detector",
-            "通用轻量版（ChatGPT Detector）": "Hello-SimpleAI/chatgpt-detector-roberta",
+            "中文优先（RoBERTa）":         "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
+            "英文通用（OpenAI Detector）":  "roberta-base-openai-detector",
+            "多语言（ChatGPT Detector）":   "Hello-SimpleAI/chatgpt-detector-roberta",
+            "多语言新版（DeBERTa）":        "Hello-SimpleAI/chatgpt-detector-deberta",
         }
         # 将 HuggingFace model_id 映射到本地目录名（与 download_models.py 保持一致）
         self._local_model_path = lambda model_id: os.path.join(
@@ -192,12 +193,12 @@ class MultiModelAIDetectorGUI:
 
         threading.Thread(target=load_model, daemon=True).start()
 
-    def _on_model_change(self, event):
+    def _on_model_change(self, _event):
         """切换模型时重新加载"""
         self.status_var.set("状态：加载中 - 切换模型，请稍候...")
         self._load_model_in_background()
 
-    def _on_threshold_change(self, *args):
+    def _on_threshold_change(self, *_args):
         """阈值变化时更新标签显示"""
         val = self.threshold.get()
         self.threshold_label.config(text=f"{val}%  ← 越低越严格")
