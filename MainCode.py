@@ -12,13 +12,24 @@ import threading
 import matplotlib
 matplotlib.use('Agg')  # 避免tkinter和matplotlib冲突
 
-# 兼容 PyInstaller 打包后的路径
-def _get_base_dir():
+# 模型目录：打包版查找可执行文件旁边，开发版查找脚本目录
+def _get_models_dir():
     if getattr(sys, 'frozen', False):
-        return sys._MEIPASS
-    return os.path.dirname(os.path.abspath(__file__))
+        exe_path = sys.executable
+        # macOS .app bundle：executable 在 MyApp.app/Contents/MacOS/ 内
+        # 模型放在 .app 同级目录下的 models/
+        parts = exe_path.replace('\\', '/').split('/')
+        app_idx = next((i for i, p in enumerate(parts) if p.endswith('.app')), None)
+        if app_idx is not None:
+            base = '/'.join(parts[:app_idx])
+        else:
+            # Windows .exe：模型放在 .exe 同级目录下的 models/
+            base = os.path.dirname(exe_path)
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "models")
 
-MODELS_DIR = os.path.join(_get_base_dir(), "models")
+MODELS_DIR = _get_models_dir()
 
 class MultiModelAIDetectorGUI:
     def __init__(self, root):

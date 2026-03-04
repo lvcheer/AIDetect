@@ -1,4 +1,4 @@
-name: 打包多平台离线版
+name: 打包多平台版本
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  # ── 先删除旧 Release，保证文件干净 ────────────────────
+  # ── 先删除旧 Release ──────────────────────────────────
   cleanup-release:
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +19,71 @@ jobs:
           tag_name: latest
           github_token: ${{ secrets.GITHUB_TOKEN }}
           delete_release: true
-        continue-on-error: true  # 第一次运行时不存在旧 Release，忽略错误
+        continue-on-error: true
+
+  # ── 打包 models.zip（只需下载一次，两平台共用）──────────
+  build-models:
+    runs-on: ubuntu-latest
+    needs: cleanup-release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: pip install transformers torch
+
+      - name: 下载所有模型
+        run: python download_models.py
+
+      - name: 压缩为 models.zip
+        run: zip -r models.zip models/
+
+      - name: 上传 models.zip 到 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "AI检测工具 多平台版"
+          body: |
+            ## 下载说明
+
+            **每个系统需要下载两个文件：**
+
+            | 文件 | 说明 |
+            |------|------|
+            | `AI检测工具-Windows.exe` | Windows 程序本体 |
+            | `AI检测工具-mac.zip` | macOS 程序本体 |
+            | `models.zip` | AI模型文件（**Windows 和 macOS 通用**，只需下载一次） |
+
+            ## 安装步骤
+
+            **Windows 用户：**
+            1. 下载 `AI检测工具-Windows.exe` 和 `models.zip`
+            2. 新建一个文件夹（如桌面上的"AI检测工具"），把 .exe 放进去
+            3. 解压 `models.zip`，将解压出的 `models` 文件夹也放进同一个文件夹
+            4. 双击 .exe 运行，结构如下：
+            ```
+            AI检测工具/
+            ├── AI检测工具-Windows.exe
+            └── models/
+            ```
+
+            **macOS 用户：**
+            1. 下载 `AI检测工具-mac.zip` 和 `models.zip`
+            2. 新建一个文件夹，解压 `AI检测工具-mac.zip`，得到 `AI检测工具-mac.app`
+            3. 解压 `models.zip`，将 `models` 文件夹放在 .app 同级目录
+            4. 双击 .app 运行，结构如下：
+            ```
+            AI检测工具/
+            ├── AI检测工具-mac.app
+            └── models/
+            ```
+
+            > 所有检测完全本地运行，文字不会上传到任何服务器。
+          files: models.zip
+          prerelease: false
 
   # ── Windows 构建 ──────────────────────────────────────
   build-windows:
@@ -37,36 +101,17 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install transformers pandas matplotlib pyinstaller
 
-      - name: 下载 AI 模型
-        run: python download_models.py
+      - name: 打包为 .exe（不含模型）
+        run: |
+          pyinstaller --onefile --windowed --name "AI检测工具-Windows" MainCode.py
         env:
           PYTHONUTF8: "1"
-
-      - name: 打包为 .exe
-        run: |
-          pyinstaller --onefile --windowed --name "AI检测工具-离线版" --add-data "models;models" MainCode.py
 
       - name: 上传 Windows .exe
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "AI检测工具 多平台离线版"
-          body: |
-            ## 下载说明
-
-            | 文件 | 适用系统 | 说明 |
-            |------|----------|------|
-            | `AI检测工具-离线版.exe` | Windows | 双击直接运行，无需安装任何环境 |
-            | `AI检测工具-离线版-mac.zip` | macOS | 解压后双击 .app 运行 |
-
-            ## 使用方法
-            1. 根据系统下载对应文件
-            2. 打开程序，等待底部状态栏显示 **"模型加载完成"**
-            3. 粘贴文字，点击"开始检测"即可
-            4. 结果颜色含义：🔴红色=高度疑似AI / 🟡黄色=疑似混合 / 🟢绿色=人类写作
-
-            > 所有检测完全本地运行，文字不会上传到任何服务器。
-          files: dist/AI检测工具-离线版.exe
+          files: dist/AI检测工具-Windows.exe
           prerelease: false
 
   # ── macOS 构建 ────────────────────────────────────────
@@ -81,24 +126,20 @@ jobs:
           python-version: "3.11"
 
       - name: 安装依赖
-        run: |
-          pip install torch transformers pandas matplotlib pyinstaller
+        run: pip install torch transformers pandas matplotlib pyinstaller
 
-      - name: 下载 AI 模型
-        run: python download_models.py
-
-      - name: 打包为 .app
+      - name: 打包为 .app（不含模型）
         run: |
-          pyinstaller --windowed --name "AI检测工具-离线版" --add-data "models:models" MainCode.py
+          pyinstaller --windowed --name "AI检测工具-mac" MainCode.py
 
       - name: 压缩 .app 为 zip
         run: |
           cd dist
-          zip -r "AI检测工具-离线版-mac.zip" "AI检测工具-离线版.app"
+          zip -r "AI检测工具-mac.zip" "AI检测工具-mac.app"
 
       - name: 上传 macOS .zip
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          files: dist/AI检测工具-离线版-mac.zip
+          files: dist/AI检测工具-mac.zip
           prerelease: false
