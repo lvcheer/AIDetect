@@ -58,6 +58,8 @@ class MultiModelAIDetectorGUI:
         )
         self.current_model = tk.StringVar(value=list(self.model_list.keys())[0])
         self.is_detecting = False
+        # 灵敏度阈值：高于此值判定为AI（默认50%）
+        self.threshold = tk.IntVar(value=50)
         
         # 创建UI布局
         self._create_widgets()
@@ -82,7 +84,19 @@ class MultiModelAIDetectorGUI:
         )
         model_combobox.grid(row=0, column=1, padx=5, pady=5)
         model_combobox.bind("<<ComboboxSelected>>", self._on_model_change)
-        
+
+        # 灵敏度滑块
+        ttk.Label(setting_frame, text="判定灵敏度（AI阈值）：").grid(row=0, column=2, padx=(20, 5), pady=5, sticky=tk.W)
+        threshold_slider = ttk.Scale(
+            setting_frame, from_=10, to=90,
+            orient=tk.HORIZONTAL, length=160,
+            variable=self.threshold
+        )
+        threshold_slider.grid(row=0, column=3, padx=5, pady=5)
+        self.threshold_label = ttk.Label(setting_frame, text="50%  ← 越低越严格")
+        self.threshold_label.grid(row=0, column=4, padx=5, pady=5)
+        self.threshold.trace_add("write", self._on_threshold_change)
+
         # 2. 文本输入区
         input_frame = ttk.LabelFrame(self.root, text="待检测文本")
         input_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
@@ -118,7 +132,7 @@ class MultiModelAIDetectorGUI:
         self.clear_btn.pack(side=tk.LEFT, padx=5)
         
         # 4. 结果展示区
-        result_frame = ttk.LabelFrame(self.root, text="检测结果（红色=高概率AI，黄色=疑似，绿色=人类）")
+        result_frame = ttk.LabelFrame(self.root, text="检测结果（按段落展示：红色=高概率AI，黄色=疑似，绿色=人类）")
         result_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         self.result_text = scrolledtext.ScrolledText(
@@ -183,27 +197,33 @@ class MultiModelAIDetectorGUI:
         self.status_var.set("状态：加载中 - 切换模型，请稍候...")
         self._load_model_in_background()
 
+    def _on_threshold_change(self, *args):
+        """阈值变化时更新标签显示"""
+        val = self.threshold.get()
+        self.threshold_label.config(text=f"{val}%  ← 越低越严格")
+
     def _split_text(self, text):
-        """分句处理，支持中英文"""
-        # 中文分句
-        cn_sentences = re.split(r'[。！？；]', text)
-        cn_separators = re.findall(r'[。！？；]', text)
-        sentences = [s.strip() + sep for s, sep in zip(cn_sentences, cn_separators) if s.strip()]
-        
-        # 如果没有中文分句，用英文分句
-        if not sentences:
-            sentences = re.split(r'[.!?;]', text)
-            en_separators = re.findall(r'[.!?;]', text)
-            sentences = [s.strip() + sep for s, sep in zip(sentences, en_separators) if s.strip()]
-        
-        # 兜底：按换行/空格分割
-        if not sentences:
-            sentences = [line.strip() for line in text.split('\n') if line.strip()]
-        
-        return sentences
+        """按段落分割文本，保留完整语义单元"""
+        # 优先按空行分段（双换行）
+        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
+
+        # 没有空行时按单换行分段
+        if len(paragraphs) <= 1:
+            paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+
+        # 兜底：整段文字无换行，按中文句号/英文句号分句
+        if len(paragraphs) <= 1:
+            cn_sentences = re.split(r'[。！？；]', text)
+            cn_separators = re.findall(r'[。！？；]', text)
+            paragraphs = [s.strip() + sep for s, sep in zip(cn_sentences, cn_separators) if s.strip()]
+
+        if not paragraphs:
+            paragraphs = [text.strip()]
+
+        return paragraphs
 
     def _detect_sentence(self, sentence):
-        """检测单句AI概率"""
+        """检测文本片段AI概率（sentence 可以是带上下文的窗口文本）"""
         try:
             inputs = self.tokenizer(
                 sentence,
@@ -309,34 +329,37 @@ class MultiModelAIDetectorGUI:
                 if not sentences:
                     raise ValueError("文本无法分割，请检查格式")
 
-                # 2. 逐句检测
-                results = []
-                total_ai_prob = 0.0
+                # 2. 整体检测：全文一次性送入模型，得到最准确的整体得分
+                ui_set_status("状态：检测中 - 分析整体文本...")
+                overall_res = self._detect_sentence(text)
+                overall_ai = overall_res["ai_prob"]
 
-                for idx, sentence in enumerate(sentences, 1):
-                    res = self._detect_sentence(sentence)
+                # 3. 逐段检测：每段作为完整语义单元送入模型
+                results = []
+                for idx, paragraph in enumerate(sentences, 1):
+                    res = self._detect_sentence(paragraph)
+                    res["sentence"] = paragraph
                     res["explanation"] = self._generate_explanation(res["ai_prob"])
                     results.append(res)
-                    total_ai_prob += res["ai_prob"]
 
-                    # 通过 root.after 调度 UI 更新到主线程
                     color_tag = self._get_color_tag(res["ai_prob"])
-                    ui_insert(f"\n【第{idx}句】{res['sentence']}\n", color_tag)
+                    preview = paragraph[:60] + "..." if len(paragraph) > 60 else paragraph
+                    ui_insert(f"\n【第{idx}段】{preview}\n", color_tag)
                     ui_insert(
                         f"AI概率：{res['ai_prob']}% | 人类概率：{res['human_prob']}%\n"
                         f"原因：{res['explanation']}\n{'-'*80}\n"
                     )
-                    ui_set_status(f"状态：检测中 - 已处理 {idx}/{len(sentences)} 句")
+                    ui_set_status(f"状态：检测中 - 已处理 {idx}/{len(sentences)} 段")
 
-                # 3. 计算整体AI率
-                overall_ai = round(total_ai_prob / len(results), 2)
+                # 4. 整体结论（用全文检测得分，而非逐句平均）
+                t = self.threshold.get()
                 conclusion = (
-                    '高度疑似AI生成' if overall_ai > 70
-                    else '疑似混合生成' if 30 <= overall_ai <= 70
+                    '高度疑似AI生成' if overall_ai >= t
+                    else '疑似混合生成' if overall_ai >= t // 2
                     else '基本判定为人类生成'
                 )
                 ui_insert(
-                    f"\n整体检测结果：\n"
+                    f"\n整体检测结果（全文分析）：\n"
                     f"文本整体AI生成概率：{overall_ai}%\n"
                     f"结论：{conclusion}\n"
                 )
@@ -354,10 +377,12 @@ class MultiModelAIDetectorGUI:
         self.result_text.tag_configure("green", foreground="green", font=("SimHei", 10))
 
     def _get_color_tag(self, ai_prob):
-        """根据AI概率返回颜色标签"""
-        if ai_prob > 70:
+        """根据AI概率和当前阈值返回颜色标签"""
+        t = self.threshold.get()
+        mid = t // 2  # 黄色区下界 = 阈值的一半
+        if ai_prob >= t:
             return "red"
-        elif 30 <= ai_prob <= 70:
+        elif ai_prob >= mid:
             return "yellow"
         else:
             return "green"
