@@ -160,5 +160,4 @@ python download_models.py   # 如果还没下载模型
 ---
 
 ## License
-
-MIT License
+KIYA
