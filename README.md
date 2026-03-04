@@ -10,11 +10,14 @@
 
 ## 功能特点
 
-- 逐句分析，实时显示检测结果
-- 颜色高亮：🔴 高度疑似AI / 🟡 疑似混合 / 🟢 人类写作
-- 支持三种检测模型（中文 / 英文 / 通用）
-- 支持导出检测结果为 CSV 文件
-- 完全离线运行，数据不出本地
+- **逐段分析**：按段落检测，保留完整上下文语义，结果更准确
+- **整体评分**：先对全文整体评分，再逐段细化分析
+- **颜色高亮**：🔴 高度疑似AI / 🟡 疑似混合 / 🟢 人类写作
+- **灵敏度调节**：可自由调整判定阈值（10%–90%），越低越严格
+- **困惑度辅助检测**：融合 GPT-2 困惑度与分类器得分，双维度提升准确率
+- **5 种检测模型**：覆盖中文、英文、多语言场景
+- **导出 CSV**：支持将检测结果导出为表格文件
+- **完全离线**：所有推理在本地完成，数据不出本地
 
 ---
 
@@ -22,11 +25,13 @@
 
 前往 [Releases 页面](https://github.com/lvcheer/AIDetect/releases/latest) 下载：
 
-| 文件 | 适用系统 |
-|------|----------|
-| `AI检测工具-Windows.exe` | Windows |
-| `AI检测工具-mac.zip` | macOS |
-| `models.zip` | 两平台通用模型文件 |
+| 文件 | 说明 |
+|------|------|
+| `AI检测工具-Windows.exe` | Windows 程序本体 |
+| `AI检测工具-mac.zip` | macOS 程序本体 |
+| `models.zip` | AI 模型文件（Windows / macOS 通用，只需下载一次） |
+
+> 详细使用步骤请查看 [用户使用指南](用户使用指南.md)
 
 ### Windows 使用步骤
 
@@ -55,6 +60,20 @@ AI检测工具/
 
 ---
 
+## 使用的模型
+
+| 显示名称 | HuggingFace 模型 | 适用语言 |
+|----------|-----------------|----------|
+| 中文优先（RoBERTa） | `Hello-SimpleAI/chatgpt-detector-roberta-chinese` | 中文 |
+| 中文新版（AIGC v2） | `yuchuantian/AIGC_detector_zhv2` | 中文 |
+| 英文通用（OpenAI Detector） | `roberta-base-openai-detector` | 英文 |
+| 英文新版（TMR Detector） | `Oxidane/tmr-ai-text-detector` | 英文 |
+| 多语言（ChatGPT Detector） | `Hello-SimpleAI/chatgpt-detector-roberta` | 中英文通用 |
+
+困惑度辅助模型：`uer/gpt2-chinese-cluecorpussmall`（启用时自动下载，约 400MB）
+
+---
+
 ## 本地开发
 
 ### 环境要求
@@ -69,14 +88,14 @@ AI检测工具/
 git clone https://github.com/lvcheer/AIDetect.git
 cd AIDetect
 
-# 2. 创建虚拟环境
-python3.11 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+# 2. 创建虚拟环境（务必使用 Python 3.11）
+python3.11 -m venv .venv311
+source .venv311/bin/activate   # Windows: .venv311\Scripts\activate
 
 # 3. 安装依赖
 pip install torch transformers pandas matplotlib
 
-# 4. 下载模型（首次需要，约 1.5GB）
+# 4. 下载分类器模型（首次需要，约 1.5GB）
 python download_models.py
 
 # 5. 运行
@@ -88,7 +107,8 @@ python MainCode.py
 ```
 AIDetect/
 ├── MainCode.py              # 主程序（GUI + 检测逻辑）
-├── download_models.py       # 下载所有模型到本地
+├── download_models.py       # 下载所有分类器模型到本地
+├── 用户使用指南.md           # 面向普通用户的操作说明
 ├── setup_and_run.bat        # Windows 一键启动脚本
 ├── models/                  # 本地模型文件（不纳入 git）
 ├── local-build/
@@ -110,21 +130,11 @@ python download_models.py   # 如果还没下载模型
 
 推送到 `main` 分支后，Actions 自动构建 Windows `.exe` 和 macOS `.zip` 并发布到 Releases。
 
-包含三个并行 Job：
+包含四个 Job：
 - `cleanup-release`：清理旧 Release
-- `build-windows`：打包 Windows 版
-- `build-macos`：打包 macOS 版
 - `build-models`：打包 `models.zip`（两平台通用）
-
----
-
-## 使用的模型
-
-| 模型名称 | 来源 | 适用语言 |
-|----------|------|----------|
-| `Hello-SimpleAI/chatgpt-detector-roberta-chinese` | HuggingFace | 中文 |
-| `roberta-base-openai-detector` | OpenAI | 英文 |
-| `Hello-SimpleAI/chatgpt-detector-roberta` | HuggingFace | 通用 |
+- `build-windows`：打包 Windows `.exe`
+- `build-macos`：打包 macOS `.app.zip`
 
 ---
 
@@ -146,6 +156,7 @@ python download_models.py   # 如果还没下载模型
 - [ ] 接入更多开源检测模型
 - [ ] 支持 GPU 加速（CUDA / MPS）
 - [ ] 提升中文分句准确率
+- [ ] 优化困惑度模型的语言适配（目前仅中文）
 
 ### 如何贡献
 
