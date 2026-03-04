@@ -1,4 +1,4 @@
-name: 打包 Windows .exe（含模型离线版）
+name: 打包多平台离线版
 
 on:
   workflow_dispatch:
@@ -9,15 +9,13 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  # ── Windows 构建 ──────────────────────────────────────
+  build-windows:
     runs-on: windows-latest
-
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: 安装 Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -26,28 +24,65 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install transformers pandas matplotlib pyinstaller
 
-      - name: 下载 AI 模型到本地
+      - name: 下载 AI 模型
         run: python download_models.py
 
-      - name: 打包为 .exe（含模型）
+      - name: 打包为 .exe
         run: |
           pyinstaller --onefile --windowed --name "AI检测工具-离线版" --add-data "models;models" MainCode.py
 
-      - name: 上传 .exe 到 Release
+      - name: 上传 Windows .exe
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "AI检测工具 Windows版"
+          name: "AI检测工具 多平台离线版"
           body: |
             ## 下载说明
 
-            | 文件 | 说明 |
-            |------|------|
-            | `AI检测工具-离线版.exe` | 含AI模型，**无需联网**，直接双击使用（文件较大约1.5GB） |
+            | 文件 | 适用系统 | 说明 |
+            |------|----------|------|
+            | `AI检测工具-离线版.exe` | Windows | 双击直接运行，无需安装任何环境 |
+            | `AI检测工具-离线版-mac.zip` | macOS | 解压后双击 .app 运行 |
 
             ## 使用方法
-            1. 下载 `AI检测工具-离线版.exe`
-            2. 双击运行，等待底部状态栏显示"模型加载完成"
+            1. 根据系统下载对应文件
+            2. 打开程序，等待底部状态栏显示 **"模型加载完成"**
             3. 粘贴文字，点击"开始检测"即可
+            4. 结果颜色含义：🔴红色=高度疑似AI / 🟡黄色=疑似混合 / 🟢绿色=人类写作
+
+            > 所有检测完全本地运行，文字不会上传到任何服务器。
           files: dist/AI检测工具-离线版.exe
+          prerelease: false
+
+  # ── macOS 构建 ────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: |
+          pip install torch transformers pandas matplotlib pyinstaller
+
+      - name: 下载 AI 模型
+        run: python download_models.py
+
+      - name: 打包为 .app
+        run: |
+          pyinstaller --windowed --name "AI检测工具-离线版" --add-data "models:models" MainCode.py
+
+      - name: 压缩 .app 为 zip
+        run: |
+          cd dist
+          zip -r "AI检测工具-离线版-mac.zip" "AI检测工具-离线版.app"
+
+      - name: 上传 macOS .zip
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          files: dist/AI检测工具-离线版-mac.zip
           prerelease: false
