@@ -384,9 +384,16 @@ class MultiModelAIDetectorGUI:
                 ui_set_status("状态：检测中 - 分析整体文本...")
                 overall_res = self._detect_sentence(text)
                 overall_ai = overall_res["ai_prob"]
+                overall_ppl_info = ""
+                use_ppl_overall = self.use_perplexity.get() and self.ppl_model is not None
+                if use_ppl_overall:
+                    ppl_ai_prob, ppl_value = self._calculate_perplexity_score(text)
+                    if ppl_ai_prob is not None:
+                        overall_ai = round(0.6 * overall_ai + 0.4 * ppl_ai_prob, 2)
+                        overall_ppl_info = f"困惑度：{ppl_value} | "
 
                 # 3. 逐段检测：每段作为完整语义单元送入模型
-                use_ppl = self.use_perplexity.get() and self.ppl_model is not None
+                use_ppl = use_ppl_overall
                 results = []
                 for idx, paragraph in enumerate(sentences, 1):
                     res = self._detect_sentence(paragraph)
@@ -422,7 +429,7 @@ class MultiModelAIDetectorGUI:
                 )
                 ui_insert(
                     f"\n整体检测结果（全文分析）：\n"
-                    f"文本整体AI生成概率：{overall_ai}%\n"
+                    f"{overall_ppl_info}综合AI生成概率：{overall_ai}%\n"
                     f"结论：{conclusion}\n"
                 )
                 ui_finish(overall_ai, results)
