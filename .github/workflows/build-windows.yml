@@ -1,9 +1,7 @@
-name: 打包 Windows .exe
+name: 打包 Windows .exe（含模型离线版）
 
 on:
-  # 手动触发
   workflow_dispatch:
-  # 或者每次推送 main 分支自动触发
   push:
     branches: [ main ]
 
@@ -28,9 +26,12 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install transformers pandas matplotlib pyinstaller
 
-      - name: 打包为 .exe
+      - name: 下载 AI 模型到本地
+        run: python download_models.py
+
+      - name: 打包为 .exe（含模型）
         run: |
-          pyinstaller --onefile --windowed --name "AI检测工具" MainCode.py
+          pyinstaller --onefile --windowed --name "AI检测工具-离线版" --add-data "models;models" MainCode.py
 
       - name: 上传 .exe 到 Release
         uses: softprops/action-gh-release@v2
@@ -38,9 +39,15 @@ jobs:
           tag_name: latest
           name: "AI检测工具 Windows版"
           body: |
-            ## 使用说明
-            1. 下载 `AI检测工具.exe`，双击运行
-            2. **首次运行需要联网**，程序会自动下载AI模型（约500MB），请耐心等待
-            3. 模型下载完成后，状态栏显示"模型加载完成"即可开始检测
-          files: dist/AI检测工具.exe
+            ## 下载说明
+
+            | 文件 | 说明 |
+            |------|------|
+            | `AI检测工具-离线版.exe` | 含AI模型，**无需联网**，直接双击使用（文件较大约1.5GB） |
+
+            ## 使用方法
+            1. 下载 `AI检测工具-离线版.exe`
+            2. 双击运行，等待底部状态栏显示"模型加载完成"
+            3. 粘贴文字，点击"开始检测"即可
+          files: dist/AI检测工具-离线版.exe
           prerelease: false
