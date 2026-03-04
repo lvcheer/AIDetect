@@ -10,9 +10,11 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import os
 
 MODEL_LIST = {
-    "中文优先（RoBERTa）": "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
-    "英文优先（OpenAI Detector）": "roberta-base-openai-detector",
-    "通用轻量版（ChatGPT Detector）": "Hello-SimpleAI/chatgpt-detector-roberta",
+    "中文优先（RoBERTa）":        "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
+    "中文新版（AIGC v2）":         "yuchuantian/AIGC_detector_zhv2",
+    "英文通用（OpenAI Detector）": "roberta-base-openai-detector",
+    "英文新版（TMR Detector）":    "Oxidane/tmr-ai-text-detector",
+    "多语言（ChatGPT Detector）":  "Hello-SimpleAI/chatgpt-detector-roberta",
 }
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
