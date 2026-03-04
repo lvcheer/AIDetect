@@ -1,11 +1,18 @@
+import sys
+import os
+
+# 修复 Windows --windowed 模式下 stdout/stderr 为 None 导致的报错
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, 'w')
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, 'w')
+
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import pandas as pd
 import re
-import os
-import sys
 import threading
 
 # 确保中文显示正常
@@ -390,9 +397,10 @@ class MultiModelAIDetectorGUI:
             messagebox.showerror("导出失败", f"保存文件出错：{e}")
 
 if __name__ == "__main__":
-    # 创建主窗口
+    # 防止 PyInstaller 在 macOS 上 multiprocessing fork 导致无限开窗
+    import multiprocessing
+    multiprocessing.freeze_support()
+
     root = tk.Tk()
     app = MultiModelAIDetectorGUI(root)
-    
-    # 运行GUI
     root.mainloop()
