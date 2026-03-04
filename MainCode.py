@@ -10,7 +10,8 @@ if sys.stderr is None:
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
 import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import math
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
 import pandas as pd
 import re
 import threading
@@ -49,9 +50,10 @@ class MultiModelAIDetectorGUI:
         self.detector = None
         self.model_list = {
             "中文优先（RoBERTa）":         "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
+            "中文新版（AIGC v2）":          "yuchuantian/AIGC_detector_zhv2",
             "英文通用（OpenAI Detector）":  "roberta-base-openai-detector",
+            "英文新版（TMR Detector）":     "Oxidane/tmr-ai-text-detector",
             "多语言（ChatGPT Detector）":   "Hello-SimpleAI/chatgpt-detector-roberta",
-            "多语言新版（DeBERTa）":        "Hello-SimpleAI/chatgpt-detector-deberta",
         }
         # 将 HuggingFace model_id 映射到本地目录名（与 download_models.py 保持一致）
         self._local_model_path = lambda model_id: os.path.join(
@@ -61,6 +63,11 @@ class MultiModelAIDetectorGUI:
         self.is_detecting = False
         # 灵敏度阈值：高于此值判定为AI（默认50%）
         self.threshold = tk.IntVar(value=50)
+        # 困惑度辅助检测开关
+        self.use_perplexity = tk.BooleanVar(value=False)
+        # 困惑度模型（GPT-2中文，懒加载）
+        self.ppl_tokenizer = None
+        self.ppl_model = None
         
         # 创建UI布局
         self._create_widgets()
@@ -97,6 +104,15 @@ class MultiModelAIDetectorGUI:
         self.threshold_label = ttk.Label(setting_frame, text="50%  ← 越低越严格")
         self.threshold_label.grid(row=0, column=4, padx=5, pady=5)
         self.threshold.trace_add("write", self._on_threshold_change)
+
+        # 困惑度辅助开关
+        ppl_check = ttk.Checkbutton(
+            setting_frame,
+            text="启用困惑度辅助检测（更准确，首次需下载~400MB）",
+            variable=self.use_perplexity,
+            command=self._on_perplexity_toggle
+        )
+        ppl_check.grid(row=1, column=0, columnspan=5, padx=5, pady=2, sticky=tk.W)
 
         # 2. 文本输入区
         input_frame = ttk.LabelFrame(self.root, text="待检测文本")
@@ -202,6 +218,40 @@ class MultiModelAIDetectorGUI:
         """阈值变化时更新标签显示"""
         val = self.threshold.get()
         self.threshold_label.config(text=f"{val}%  ← 越低越严格")
+
+    def _on_perplexity_toggle(self):
+        """开启困惑度时懒加载 GPT-2 中文模型"""
+        if self.use_perplexity.get() and self.ppl_model is None:
+            self.status_var.set("状态：加载中 - 正在下载困惑度模型（GPT-2中文，约400MB）...")
+            def load_ppl():
+                try:
+                    ppl_model_id = "uer/gpt2-chinese-cluecorpussmall"
+                    self.ppl_tokenizer = AutoTokenizer.from_pretrained(ppl_model_id)
+                    self.ppl_model = AutoModelForCausalLM.from_pretrained(ppl_model_id)
+                    self.ppl_model.to(self.device if hasattr(self, 'device') else 'cpu')
+                    self.ppl_model.eval()
+                    self.root.after(0, lambda: self.status_var.set("状态：就绪 - 困惑度模型加载完成"))
+                except Exception as e:
+                    msg = str(e)
+                    self.root.after(0, lambda: self.use_perplexity.set(False))
+                    self.root.after(0, lambda: messagebox.showerror("加载失败", f"困惑度模型下载失败：{msg}"))
+            threading.Thread(target=load_ppl, daemon=True).start()
+
+    def _calculate_perplexity_score(self, text):
+        """用 GPT-2 计算困惑度并转换为AI概率（困惑度低=AI概率高）"""
+        try:
+            inputs = self.ppl_tokenizer(
+                text, return_tensors="pt", truncation=True, max_length=512
+            ).to(self.ppl_model.device)
+            input_ids = inputs["input_ids"]
+            with torch.no_grad():
+                loss = self.ppl_model(input_ids, labels=input_ids).loss
+            perplexity = torch.exp(loss).item()
+            # sigmoid 转换：困惑度中心点约 40，越低越像AI
+            ai_prob = 1 / (1 + math.exp((perplexity - 40) / 12)) * 100
+            return round(ai_prob, 2), round(perplexity, 2)
+        except Exception:
+            return None, None
 
     def _split_text(self, text):
         """按段落分割文本，保留完整语义单元"""
@@ -336,18 +386,29 @@ class MultiModelAIDetectorGUI:
                 overall_ai = overall_res["ai_prob"]
 
                 # 3. 逐段检测：每段作为完整语义单元送入模型
+                use_ppl = self.use_perplexity.get() and self.ppl_model is not None
                 results = []
                 for idx, paragraph in enumerate(sentences, 1):
                     res = self._detect_sentence(paragraph)
                     res["sentence"] = paragraph
+
+                    # 如果开启困惑度辅助，融合两个得分
+                    if use_ppl:
+                        ppl_ai_prob, ppl_value = self._calculate_perplexity_score(paragraph)
+                        if ppl_ai_prob is not None:
+                            res["ai_prob"] = round(0.6 * res["ai_prob"] + 0.4 * ppl_ai_prob, 2)
+                            res["human_prob"] = round(100 - res["ai_prob"], 2)
+                            res["perplexity"] = ppl_value
+
                     res["explanation"] = self._generate_explanation(res["ai_prob"])
                     results.append(res)
 
                     color_tag = self._get_color_tag(res["ai_prob"])
                     preview = paragraph[:60] + "..." if len(paragraph) > 60 else paragraph
                     ui_insert(f"\n【第{idx}段】{preview}\n", color_tag)
+                    ppl_info = f" | 困惑度：{res.get('perplexity', '-')}" if use_ppl else ""
                     ui_insert(
-                        f"AI概率：{res['ai_prob']}% | 人类概率：{res['human_prob']}%\n"
+                        f"AI概率：{res['ai_prob']}%{ppl_info} | 人类概率：{res['human_prob']}%\n"
                         f"原因：{res['explanation']}\n{'-'*80}\n"
                     )
                     ui_set_status(f"状态：检测中 - 已处理 {idx}/{len(sentences)} 段")
