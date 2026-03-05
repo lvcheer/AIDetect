@@ -255,6 +255,23 @@ class MultiModelAIDetectorGUI:
         except Exception:
             return None, None
 
+    def _calculate_burstiness_score(self, text):
+        """计算句子长度突发性（CV），低突发性=AI概率高
+        人类写作忽长忽短（CV高），AI写作长度均匀（CV低）"""
+        sentences = [s.strip() for s in re.split(r'[。！？；.!?;]', text) if len(s.strip()) > 5]
+        if len(sentences) < 3:
+            return None, None
+        lengths = [len(s) for s in sentences]
+        mean_len = sum(lengths) / len(lengths)
+        if mean_len == 0:
+            return None, None
+        variance = sum((l - mean_len) ** 2 for l in lengths) / len(lengths)
+        std_len = variance ** 0.5
+        cv = std_len / mean_len  # 变异系数：越低越均匀越像AI
+        # sigmoid：CV中心点0.4，低CV→高AI概率
+        ai_prob = 1 / (1 + math.exp((cv - 0.4) / 0.15)) * 100
+        return round(ai_prob, 2), round(cv, 3)
+
     def _split_text(self, text):
         """按段落分割文本，保留完整语义单元"""
         # 优先按空行分段（双换行）
@@ -309,14 +326,37 @@ class MultiModelAIDetectorGUI:
                 "error": str(e)
             }
 
-    def _generate_explanation(self, ai_prob):
-        """生成检测原因解释"""
+    def _generate_explanation(self, ai_prob, ppl_value=None, burstiness_cv=None):
+        """生成多维度检测原因解释"""
+        # 基础结论
         if ai_prob < 30:
-            return "文本符合人类写作特征：语言表达自然，有正常的逻辑波动，无明显AI生成痕迹。"
-        elif 30 <= ai_prob < 70:
-            return "文本疑似混合生成：部分语句结构规整度较高，存在少量AI生成特征，但仍有人类表达痕迹。"
+            base = "文本符合人类写作特征，语言自然，逻辑有正常波动，无明显AI痕迹。"
+        elif ai_prob < 70:
+            base = "文本疑似混合生成，部分语句结构较规整，存在AI特征但仍有人类表达痕迹。"
         else:
-            return "文本高度疑似AI生成：语言表达过于规范，语句模板化明显，缺少人类写作的情感和逻辑瑕疵。"
+            base = "文本高度疑似AI生成，语言过于规范，句式模板化，缺少人类写作的情感起伏。"
+
+        parts = [base]
+
+        # 困惑度维度解释
+        if ppl_value is not None:
+            if ppl_value < 25:
+                parts.append(f"困惑度 {ppl_value}（极低）：文本对语言模型几乎没有意外，流畅度异常高，强烈暗示AI生成。")
+            elif ppl_value < 45:
+                parts.append(f"困惑度 {ppl_value}（偏低）：文本较为流畅规律，有一定AI生成可能。")
+            else:
+                parts.append(f"困惑度 {ppl_value}（正常）：文本流畅度在人类写作正常范围内。")
+
+        # 突发性维度解释
+        if burstiness_cv is not None:
+            if burstiness_cv < 0.2:
+                parts.append(f"突发性 CV={burstiness_cv}（极低）：句子长度高度均匀，缺乏人类写作的节奏变化，强烈暗示AI生成。")
+            elif burstiness_cv < 0.4:
+                parts.append(f"突发性 CV={burstiness_cv}（偏低）：句子长度较均匀，AI风格明显。")
+            else:
+                parts.append(f"突发性 CV={burstiness_cv}（正常）：句子长度有自然波动，符合人类写作节奏。")
+
+        return " | ".join(parts)
 
     def _start_detection(self):
         """开始检测（后台线程执行，避免界面卡死）"""
@@ -385,52 +425,97 @@ class MultiModelAIDetectorGUI:
                 ui_set_status("状态：检测中 - 分析整体文本...")
                 overall_res = self._detect_sentence(text)
                 overall_ai = overall_res["ai_prob"]
-                overall_ppl_info = ""
-                use_ppl_overall = self.use_perplexity.get() and self.ppl_model is not None
-                if use_ppl_overall:
-                    ppl_ai_prob, ppl_value = self._calculate_perplexity_score(text)
+                use_ppl = self.use_perplexity.get() and self.ppl_model is not None
+
+                # 整体：困惑度
+                overall_ppl_value = None
+                if use_ppl:
+                    ppl_ai_prob, overall_ppl_value = self._calculate_perplexity_score(text)
                     if ppl_ai_prob is not None:
-                        overall_ai = round(0.6 * overall_ai + 0.4 * ppl_ai_prob, 2)
-                        overall_ppl_info = f"困惑度：{ppl_value} | "
+                        overall_ai = round(overall_ai * 0.6 + ppl_ai_prob * 0.4, 2)
+
+                # 整体：突发性（全文级别最有意义）
+                overall_burst_cv = None
+                burst_ai_prob, overall_burst_cv = self._calculate_burstiness_score(text)
+                if burst_ai_prob is not None:
+                    # 动态权重：有困惑度时 5:3:2，无困惑度时 7:3
+                    if use_ppl and overall_ppl_value is not None:
+                        overall_ai = round(overall_ai * 0.8 + burst_ai_prob * 0.2, 2)
+                    else:
+                        overall_ai = round(overall_ai * 0.7 + burst_ai_prob * 0.3, 2)
 
                 # 3. 逐段检测：每段作为完整语义单元送入模型
-                use_ppl = use_ppl_overall
                 results = []
                 for idx, paragraph in enumerate(sentences, 1):
                     res = self._detect_sentence(paragraph)
                     res["sentence"] = paragraph
+                    para_ppl_value = None
+                    para_burst_cv = None
 
-                    # 如果开启困惑度辅助，融合两个得分
                     if use_ppl:
-                        ppl_ai_prob, ppl_value = self._calculate_perplexity_score(paragraph)
+                        ppl_ai_prob, para_ppl_value = self._calculate_perplexity_score(paragraph)
                         if ppl_ai_prob is not None:
-                            res["ai_prob"] = round(0.6 * res["ai_prob"] + 0.4 * ppl_ai_prob, 2)
+                            res["ai_prob"] = round(res["ai_prob"] * 0.6 + ppl_ai_prob * 0.4, 2)
                             res["human_prob"] = round(100 - res["ai_prob"], 2)
-                            res["perplexity"] = ppl_value
+                            res["perplexity"] = para_ppl_value
 
-                    res["explanation"] = self._generate_explanation(res["ai_prob"])
+                    # 段落突发性（需≥3句才有意义）
+                    burst_ai_prob_p, para_burst_cv = self._calculate_burstiness_score(paragraph)
+                    if burst_ai_prob_p is not None:
+                        if use_ppl and para_ppl_value is not None:
+                            res["ai_prob"] = round(res["ai_prob"] * 0.8 + burst_ai_prob_p * 0.2, 2)
+                        else:
+                            res["ai_prob"] = round(res["ai_prob"] * 0.7 + burst_ai_prob_p * 0.3, 2)
+                        res["human_prob"] = round(100 - res["ai_prob"], 2)
+                        res["burstiness_cv"] = para_burst_cv
+
+                    res["explanation"] = self._generate_explanation(
+                        res["ai_prob"],
+                        ppl_value=res.get("perplexity"),
+                        burstiness_cv=res.get("burstiness_cv")
+                    )
                     results.append(res)
 
                     color_tag = self._get_color_tag(res["ai_prob"])
                     preview = paragraph[:60] + "..." if len(paragraph) > 60 else paragraph
                     ui_insert(f"\n【第{idx}段】{preview}\n", color_tag)
-                    ppl_info = f" | 困惑度：{res.get('perplexity', '-')}" if use_ppl else ""
+
+                    extra_info = []
+                    if use_ppl and "perplexity" in res:
+                        extra_info.append(f"困惑度：{res['perplexity']}")
+                    if "burstiness_cv" in res:
+                        extra_info.append(f"突发性CV：{res['burstiness_cv']}")
+                    info_str = (" | " + " | ".join(extra_info)) if extra_info else ""
+
                     ui_insert(
-                        f"AI概率：{res['ai_prob']}%{ppl_info} | 人类概率：{res['human_prob']}%\n"
+                        f"AI概率：{res['ai_prob']}%{info_str} | 人类概率：{res['human_prob']}%\n"
                         f"原因：{res['explanation']}\n{'-'*80}\n"
                     )
                     ui_set_status(f"状态：检测中 - 已处理 {idx}/{len(sentences)} 段")
 
-                # 4. 整体结论（用全文检测得分，而非逐句平均）
+                # 4. 整体结论
                 t = self.threshold.get()
                 conclusion = (
                     '高度疑似AI生成' if overall_ai >= t
                     else '疑似混合生成' if overall_ai >= t // 2
                     else '基本判定为人类生成'
                 )
+                overall_extra = []
+                if use_ppl and overall_ppl_value is not None:
+                    overall_extra.append(f"困惑度：{overall_ppl_value}")
+                if overall_burst_cv is not None:
+                    overall_extra.append(f"突发性CV：{overall_burst_cv}")
+                overall_info_str = ("  |  " + "  |  ".join(overall_extra) + "\n") if overall_extra else ""
+                overall_explanation = self._generate_explanation(
+                    overall_ai,
+                    ppl_value=overall_ppl_value,
+                    burstiness_cv=overall_burst_cv
+                )
                 ui_insert(
-                    f"\n整体检测结果（全文分析）：\n"
-                    f"{overall_ppl_info}综合AI生成概率：{overall_ai}%\n"
+                    f"\n{'='*80}\n整体检测结果（全文分析）：\n"
+                    f"综合AI生成概率：{overall_ai}%  |  人类概率：{round(100 - overall_ai, 2)}%\n"
+                    f"{overall_info_str}"
+                    f"分析：{overall_explanation}\n"
                     f"结论：{conclusion}\n"
                 )
                 ui_finish(overall_ai, results)
