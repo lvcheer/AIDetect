@@ -427,22 +427,28 @@ class MultiModelAIDetectorGUI:
                 overall_ai = overall_res["ai_prob"]
                 use_ppl = self.use_perplexity.get() and self.ppl_model is not None
 
-                # 整体：困惑度
+                # 整体：困惑度 + 突发性
                 overall_ppl_value = None
-                if use_ppl:
-                    ppl_ai_prob, overall_ppl_value = self._calculate_perplexity_score(text)
-                    if ppl_ai_prob is not None:
-                        overall_ai = round(overall_ai * 0.6 + ppl_ai_prob * 0.4, 2)
-
-                # 整体：突发性（全文级别最有意义）
                 overall_burst_cv = None
-                burst_ai_prob, overall_burst_cv = self._calculate_burstiness_score(text)
-                if burst_ai_prob is not None:
-                    # 动态权重：有困惑度时 5:3:2，无困惑度时 7:3
-                    if use_ppl and overall_ppl_value is not None:
-                        overall_ai = round(overall_ai * 0.8 + burst_ai_prob * 0.2, 2)
-                    else:
-                        overall_ai = round(overall_ai * 0.7 + burst_ai_prob * 0.3, 2)
+                ppl_ai_prob_val = None
+                burst_ai_prob_val = None
+
+                if use_ppl:
+                    ppl_ai_prob_val, overall_ppl_value = self._calculate_perplexity_score(text)
+                burst_ai_prob_val, overall_burst_cv = self._calculate_burstiness_score(text)
+
+                # 直接加权融合（权重：分类器20% + 困惑度60% + 突发性20%）
+                # 按实际可用维度动态分配
+                has_ppl = ppl_ai_prob_val is not None
+                has_burst = burst_ai_prob_val is not None
+                cls_score = overall_ai  # 先保存分类器原始得分
+
+                if has_ppl and has_burst:
+                    overall_ai = round(cls_score * 0.2 + ppl_ai_prob_val * 0.6 + burst_ai_prob_val * 0.2, 2)
+                elif has_ppl:
+                    overall_ai = round(cls_score * 0.25 + ppl_ai_prob_val * 0.75, 2)
+                elif has_burst:
+                    overall_ai = round(cls_score * 0.7 + burst_ai_prob_val * 0.3, 2)
 
                 # 3. 逐段检测：每段作为完整语义单元送入模型
                 results = []
@@ -452,22 +458,29 @@ class MultiModelAIDetectorGUI:
                     para_ppl_value = None
                     para_burst_cv = None
 
+                    para_ppl_prob = None
+                    para_burst_prob = None
+
                     if use_ppl:
-                        ppl_ai_prob, para_ppl_value = self._calculate_perplexity_score(paragraph)
-                        if ppl_ai_prob is not None:
-                            res["ai_prob"] = round(res["ai_prob"] * 0.6 + ppl_ai_prob * 0.4, 2)
-                            res["human_prob"] = round(100 - res["ai_prob"], 2)
+                        para_ppl_prob, para_ppl_value = self._calculate_perplexity_score(paragraph)
+                        if para_ppl_prob is not None:
                             res["perplexity"] = para_ppl_value
 
-                    # 段落突发性（需≥3句才有意义）
-                    burst_ai_prob_p, para_burst_cv = self._calculate_burstiness_score(paragraph)
-                    if burst_ai_prob_p is not None:
-                        if use_ppl and para_ppl_value is not None:
-                            res["ai_prob"] = round(res["ai_prob"] * 0.8 + burst_ai_prob_p * 0.2, 2)
-                        else:
-                            res["ai_prob"] = round(res["ai_prob"] * 0.7 + burst_ai_prob_p * 0.3, 2)
-                        res["human_prob"] = round(100 - res["ai_prob"], 2)
+                    para_burst_prob, para_burst_cv = self._calculate_burstiness_score(paragraph)
+                    if para_burst_prob is not None:
                         res["burstiness_cv"] = para_burst_cv
+
+                    # 直接加权融合（同整体权重：分类器20% + 困惑度60% + 突发性20%）
+                    cls_p = res["ai_prob"]
+                    has_ppl_p = para_ppl_prob is not None
+                    has_burst_p = para_burst_prob is not None
+                    if has_ppl_p and has_burst_p:
+                        res["ai_prob"] = round(cls_p * 0.2 + para_ppl_prob * 0.6 + para_burst_prob * 0.2, 2)
+                    elif has_ppl_p:
+                        res["ai_prob"] = round(cls_p * 0.25 + para_ppl_prob * 0.75, 2)
+                    elif has_burst_p:
+                        res["ai_prob"] = round(cls_p * 0.7 + para_burst_prob * 0.3, 2)
+                    res["human_prob"] = round(100 - res["ai_prob"], 2)
 
                     res["explanation"] = self._generate_explanation(
                         res["ai_prob"],
