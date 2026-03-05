@@ -192,15 +192,17 @@ class MultiModelAIDetectorGUI:
                 self.model.eval()
 
                 # 自动检测哪个标签对应 AI（不同模型标签顺序不同）
-                ai_keywords = {"fake", "chatgpt", "ai", "machine", "generated"}
+                # 使用子串匹配，兼容 "ChatGPT"、"Fake"、"AIGC"、"AI-generated" 等各种写法
+                ai_keywords = {"fake", "chatgpt", "ai", "machine", "generated", "aigc"}
                 self.ai_label_idx = 1  # 默认
                 for idx, label in self.model.config.id2label.items():
-                    if label.lower() in ai_keywords:
+                    if any(kw in label.lower() for kw in ai_keywords):
                         self.ai_label_idx = idx
                         break
 
+                detected_label = self.model.config.id2label.get(self.ai_label_idx, "?")
                 self.root.after(0, lambda: self.status_var.set(
-                    f"状态：就绪 - 模型加载完成（{self.device}）"
+                    f"状态：就绪 - 模型加载完成（{self.device}）| AI标签：{detected_label}[{self.ai_label_idx}]"
                 ))
             except Exception as e:
                 msg = str(e)
@@ -289,9 +291,8 @@ class MultiModelAIDetectorGUI:
             
             probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
             ai_idx = getattr(self, 'ai_label_idx', 1)
-            human_idx = 1 - ai_idx
             ai_prob = probabilities[0][ai_idx].item() * 100
-            human_prob = probabilities[0][human_idx].item() * 100
+            human_prob = 100 - ai_prob  # 兼容多标签模型，不依赖 1-ai_idx
             
             return {
                 "sentence": sentence,
