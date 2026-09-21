@@ -102,11 +102,30 @@ python download_models.py
 python MainCode.py
 ```
 
+### 批量 CLI
+
+输入文件可以是 JSONL 或 CSV，每条记录必须包含唯一的 `document_id` 和
+非空 `text`。一次运行使用一个分类器：
+
+```bash
+python -m aidetect \
+  --input benchmark/input.jsonl \
+  --output benchmark/output.jsonl \
+  --model roberta-base-openai-detector
+```
+
+添加 `--perplexity` 可启用现有 GPT-2 困惑度特征。输出包含模型来源、
+设备、raw classifier score、启发式特征分数和 fused score。这些分数尚未
+校准，不是概率。
+
 ### 项目结构
 
 ```
 AIDetect/
-├── MainCode.py              # 主程序（GUI + 检测逻辑）
+├── MainCode.py              # GUI 入口
+├── aidetect/                # 可复用推理、特征、融合、schema 和 CLI
+├── benchmark/               # benchmark 协议、manifest schema 和指标
+├── tests/                   # 单元测试
 ├── download_models.py       # 下载所有分类器模型到本地
 ├── 用户使用指南.md           # 面向普通用户的操作说明
 ├── setup_and_run.bat        # Windows 一键启动脚本
