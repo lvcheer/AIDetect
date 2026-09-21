@@ -201,4 +201,5 @@ python download_models.py   # 如果还没下载模型
 ---
 
 ## License
-KIYA
+
+本项目采用 [MIT License](LICENSE)。
