@@ -22,6 +22,7 @@ from aidetect.features import (
 from aidetect.fusion import fuse_heuristic_scores
 from aidetect.inference import infer_raw_score
 from aidetect.models import MODEL_REGISTRY, find_ai_label_index, local_model_path
+from aidetect.schema import DetectionRecord, RESULT_SCHEMA_VERSION
 
 # 确保中文显示正常
 import matplotlib
@@ -370,13 +371,18 @@ class MultiModelAIDetectorGUI:
         def ui_set_status(msg):
             self.root.after(0, lambda: self.status_var.set(msg))
 
-        def ui_finish(overall_ai, results):
+        def ui_finish(overall_record, results, records):
             def _do():
                 self.detection_results = {
-                    "overall_ai_rate": overall_ai,
-                    "sentence_results": results
+                    "schema_version": RESULT_SCHEMA_VERSION,
+                    "overall_ai_rate": overall_record.fused_score,
+                    "overall_result": overall_record.to_dict(),
+                    "sentence_results": results,
+                    "records": [record.to_dict() for record in records],
                 }
-                self.status_var.set(f"状态：完成 - 检测结束，整体AI概率：{overall_ai}%")
+                self.status_var.set(
+                    f"状态：完成 - 检测结束，整体AI概率：{overall_record.fused_score}%"
+                )
                 self.export_btn.config(state="normal")
                 self.is_detecting = False
                 self.detect_btn.config(state="normal")
@@ -403,7 +409,7 @@ class MultiModelAIDetectorGUI:
                 # 2. 整体检测：全文一次性送入模型，得到最准确的整体得分
                 ui_set_status("状态：检测中 - 分析整体文本...")
                 overall_res = self._detect_sentence(text)
-                overall_ai = overall_res["ai_prob"]
+                overall_classifier_score = overall_res["ai_prob"]
                 use_ppl = self.use_perplexity.get() and self.ppl_model is not None
 
                 # 整体：困惑度 + 突发性
@@ -417,16 +423,18 @@ class MultiModelAIDetectorGUI:
                 burst_ai_prob_val, overall_burst_cv = self._calculate_burstiness_score(text)
 
                 overall_ai = fuse_heuristic_scores(
-                    overall_ai,
+                    overall_classifier_score,
                     perplexity_score=ppl_ai_prob_val,
                     burstiness_score=burst_ai_prob_val,
                 )
 
                 # 3. 逐段检测：每段作为完整语义单元送入模型
                 results = []
+                records = []
                 for idx, paragraph in enumerate(sentences, 1):
                     res = self._detect_sentence(paragraph)
                     res["sentence"] = paragraph
+                    raw_classifier_score = res["ai_prob"]
                     para_ppl_value = None
                     para_burst_cv = None
 
@@ -435,25 +443,33 @@ class MultiModelAIDetectorGUI:
 
                     if use_ppl:
                         para_ppl_prob, para_ppl_value = self._calculate_perplexity_score(paragraph)
-                        if para_ppl_prob is not None:
-                            res["perplexity"] = para_ppl_value
 
                     para_burst_prob, para_burst_cv = self._calculate_burstiness_score(paragraph)
-                    if para_burst_prob is not None:
-                        res["burstiness_cv"] = para_burst_cv
 
-                    res["ai_prob"] = fuse_heuristic_scores(
-                        res["ai_prob"],
+                    fused_score = fuse_heuristic_scores(
+                        raw_classifier_score,
                         perplexity_score=para_ppl_prob,
                         burstiness_score=para_burst_prob,
                     )
-                    res["human_prob"] = round(100 - res["ai_prob"], 2)
-
-                    res["explanation"] = self._generate_explanation(
-                        res["ai_prob"],
-                        ppl_value=res.get("perplexity"),
-                        burstiness_cv=res.get("burstiness_cv")
+                    explanation = self._generate_explanation(
+                        fused_score,
+                        ppl_value=para_ppl_value,
+                        burstiness_cv=para_burst_cv,
                     )
+                    record = DetectionRecord(
+                        text=paragraph,
+                        raw_classifier_score=raw_classifier_score,
+                        raw_classifier_is_ai=res["is_ai"],
+                        perplexity_value=para_ppl_value,
+                        perplexity_heuristic_score=para_ppl_prob,
+                        burstiness_cv=para_burst_cv,
+                        burstiness_heuristic_score=para_burst_prob,
+                        fused_score=fused_score,
+                        explanation=explanation,
+                        error=res.get("error"),
+                    )
+                    records.append(record)
+                    res = record.to_legacy_dict()
                     results.append(res)
 
                     color_tag = self._get_color_tag(res["ai_prob"])
@@ -491,6 +507,18 @@ class MultiModelAIDetectorGUI:
                     ppl_value=overall_ppl_value,
                     burstiness_cv=overall_burst_cv
                 )
+                overall_record = DetectionRecord(
+                    text=text,
+                    raw_classifier_score=overall_classifier_score,
+                    raw_classifier_is_ai=overall_res["is_ai"],
+                    perplexity_value=overall_ppl_value,
+                    perplexity_heuristic_score=ppl_ai_prob_val,
+                    burstiness_cv=overall_burst_cv,
+                    burstiness_heuristic_score=burst_ai_prob_val,
+                    fused_score=overall_ai,
+                    explanation=overall_explanation,
+                    error=overall_res.get("error"),
+                )
                 ui_insert(
                     f"\n{'='*80}\n整体检测结果（全文分析）：\n"
                     f"综合AI生成概率：{overall_ai}%  |  人类概率：{round(100 - overall_ai, 2)}%\n"
@@ -498,7 +526,7 @@ class MultiModelAIDetectorGUI:
                     f"分析：{overall_explanation}\n"
                     f"结论：{conclusion}\n"
                 )
-                ui_finish(overall_ai, results)
+                ui_finish(overall_record, results, records)
 
             except Exception as e:
                 ui_error(str(e))

@@ -9,11 +9,14 @@ from .features import (
 from .fusion import fuse_heuristic_scores
 from .inference import RawScore, infer_raw_score
 from .models import MODEL_REGISTRY, find_ai_label_index, local_model_path
+from .schema import DetectionRecord, RESULT_SCHEMA_VERSION
 
 __all__ = [
     "BurstinessFeature",
+    "DetectionRecord",
     "MODEL_REGISTRY",
     "PerplexityFeature",
+    "RESULT_SCHEMA_VERSION",
     "RawScore",
     "calculate_burstiness_feature",
     "calculate_perplexity_feature",
