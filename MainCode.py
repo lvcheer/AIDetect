@@ -145,7 +145,7 @@ class MultiModelAIDetectorGUI:
         self.clear_btn.pack(side=tk.LEFT, padx=5)
         
         # 4. 结果展示区
-        result_frame = ttk.LabelFrame(self.root, text="检测结果（按段落展示：红色=高概率AI，黄色=疑似，绿色=人类）")
+        result_frame = ttk.LabelFrame(self.root, text="检测结果（分数未经校准：红色=AI分数高，黄色=疑似，绿色=人类）")
         result_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         self.result_text = scrolledtext.ScrolledText(
@@ -279,13 +279,13 @@ class MultiModelAIDetectorGUI:
             def _do():
                 self.detection_results = {
                     "schema_version": RESULT_SCHEMA_VERSION,
-                    "overall_ai_rate": overall_record.fused_score,
+                    "overall_ai_score": overall_record.fused_score,
                     "overall_result": overall_record.to_dict(),
                     "sentence_results": results,
                     "records": [record.to_dict() for record in records],
                 }
                 self.status_var.set(
-                    f"状态：完成 - 检测结束，整体AI概率：{overall_record.fused_score}%"
+                    f"状态：完成 - 检测结束，整体AI检测分数：{overall_record.fused_score}%"
                 )
                 self.export_btn.config(state="normal")
                 self.is_detecting = False
@@ -340,10 +340,10 @@ class MultiModelAIDetectorGUI:
                         perplexity_model=ppl_model,
                     )
                     records.append(record)
-                    res = record.to_legacy_dict()
+                    res = record.to_display_dict()
                     results.append(res)
 
-                    color_tag = self._get_color_tag(res["ai_prob"])
+                    color_tag = self._get_color_tag(res["ai_score"])
                     preview = paragraph[:60] + "..." if len(paragraph) > 60 else paragraph
                     ui_insert(f"\n【第{idx}段】{preview}\n", color_tag)
 
@@ -355,7 +355,8 @@ class MultiModelAIDetectorGUI:
                     info_str = (" | " + " | ".join(extra_info)) if extra_info else ""
 
                     ui_insert(
-                        f"AI概率：{res['ai_prob']}%{info_str} | 人类概率：{res['human_prob']}%\n"
+                        f"AI检测分数：{res['ai_score']}%{info_str} | "
+                        f"互补分数：{res['complement_score']}%\n"
                         f"原因：{res['explanation']}\n{'-'*80}\n"
                     )
                     ui_set_status(f"状态：检测中 - 已处理 {idx}/{len(sentences)} 段")
@@ -375,7 +376,8 @@ class MultiModelAIDetectorGUI:
                 overall_info_str = ("  |  " + "  |  ".join(overall_extra) + "\n") if overall_extra else ""
                 ui_insert(
                     f"\n{'='*80}\n整体检测结果（全文分析）：\n"
-                    f"综合AI生成概率：{overall_ai}%  |  人类概率：{round(100 - overall_ai, 2)}%\n"
+                    f"综合AI检测分数：{overall_ai}%  |  "
+                    f"互补分数：{round(100 - overall_ai, 2)}%\n"
                     f"{overall_info_str}"
                     f"分析：{overall_record.explanation}\n"
                     f"结论：{conclusion}\n"
@@ -393,13 +395,13 @@ class MultiModelAIDetectorGUI:
         self.result_text.tag_configure("yellow", foreground="orange", font=("SimHei", 10))
         self.result_text.tag_configure("green", foreground="green", font=("SimHei", 10))
 
-    def _get_color_tag(self, ai_prob):
-        """根据AI概率和当前阈值返回颜色标签"""
+    def _get_color_tag(self, ai_score):
+        """根据AI检测分数和当前阈值返回颜色标签"""
         t = self.threshold.get()
         mid = t // 2  # 黄色区下界 = 阈值的一半
-        if ai_prob >= t:
+        if ai_score >= t:
             return "red"
-        elif ai_prob >= mid:
+        elif ai_score >= mid:
             return "yellow"
         else:
             return "green"
@@ -425,10 +427,10 @@ class MultiModelAIDetectorGUI:
             # 添加整体结果行
             overall_row = pd.DataFrame({
                 "sentence": ["【整体结果】"],
-                "ai_prob": [self.detection_results["overall_ai_rate"]],
-                "human_prob": [100 - self.detection_results["overall_ai_rate"]],
-                "is_ai": [self.detection_results["overall_ai_rate"] > 50],
-                "explanation": ["整体AI生成概率计算结果"]
+                "ai_score": [self.detection_results["overall_ai_score"]],
+                "complement_score": [100 - self.detection_results["overall_ai_score"]],
+                "is_ai": [self.detection_results["overall_ai_score"] > 50],
+                "explanation": ["整体AI检测分数计算结果"]
             })
             df = pd.concat([overall_row, df], ignore_index=True)
             

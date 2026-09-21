@@ -27,7 +27,7 @@ class DetectionRecordTests(unittest.TestCase):
         self.assertEqual(payload["fused_score"], 58.22)
         json.dumps(payload)
 
-    def test_legacy_adapter_preserves_gui_and_csv_fields(self):
+    def test_display_adapter_uses_score_names(self):
         record = DetectionRecord(
             text="example",
             raw_classifier_score=80.0,
@@ -42,11 +42,11 @@ class DetectionRecordTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            record.to_legacy_dict(),
+            record.to_display_dict(),
             {
                 "sentence": "example",
-                "ai_prob": 58.22,
-                "human_prob": 41.78,
+                "ai_score": 58.22,
+                "complement_score": 41.78,
                 "is_ai": True,
                 "perplexity": 40.0,
                 "burstiness_cv": 0.3,
@@ -55,7 +55,7 @@ class DetectionRecordTests(unittest.TestCase):
             },
         )
 
-    def test_legacy_adapter_omits_unavailable_optional_fields(self):
+    def test_display_adapter_omits_unavailable_optional_fields(self):
         record = DetectionRecord(
             text="example",
             raw_classifier_score=20.0,
@@ -68,11 +68,11 @@ class DetectionRecordTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            record.to_legacy_dict(),
+            record.to_display_dict(),
             {
                 "sentence": "example",
-                "ai_prob": 20.0,
-                "human_prob": 80.0,
+                "ai_score": 20.0,
+                "complement_score": 80.0,
                 "is_ai": False,
             },
         )

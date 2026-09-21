@@ -40,12 +40,12 @@ class DetectionRecord:
             "error": self.error,
         }
 
-    def to_legacy_dict(self):
-        """Return the existing GUI/CSV shape while callers migrate."""
+    def to_display_dict(self):
+        """Return the GUI/CSV shape without implying score calibration."""
         result = {
             "sentence": self.text,
-            "ai_prob": self.fused_score,
-            "human_prob": round(100 - self.fused_score, 2),
+            "ai_score": self.fused_score,
+            "complement_score": round(100 - self.fused_score, 2),
             "is_ai": self.raw_classifier_is_ai,
         }
         if self.perplexity_value is not None:

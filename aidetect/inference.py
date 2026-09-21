@@ -35,8 +35,8 @@ def infer_raw_score(text, tokenizer, model, device, ai_label_index, max_length=5
     with torch.no_grad():
         outputs = model(**inputs)
 
-    probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)[0]
-    scores = tuple(float(value) for value in probabilities.detach().cpu().tolist())
+    normalized_scores = torch.nn.functional.softmax(outputs.logits, dim=-1)[0]
+    scores = tuple(float(value) for value in normalized_scores.detach().cpu().tolist())
     if not 0 <= ai_label_index < len(scores):
         raise ValueError(
             f"AI label index {ai_label_index} is outside {len(scores)} model classes"
