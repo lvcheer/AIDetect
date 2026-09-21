@@ -128,6 +128,31 @@ python -m aidetect \
 设备、raw classifier score、启发式特征分数和 fused score。这些分数尚未
 校准，不是概率。
 
+### Benchmark manifest 划分
+
+候选 manifest 使用 JSONL，每行须符合
+`benchmark/dataset_manifest_schema.json`。输入中的 `split` 和
+`evaluation_partition` 是合法占位值；脚本校验记录、文本 SHA-256、精确重复、
+父子 lineage 后覆盖这两个字段。随机种子、划分比例及 held-out generator 必须
+显式指定。比例按不可拆分的 source/近重复组件计算；正式非 held-out 数据至少
+需要三个组件，以保证 train、calibration 和 in-distribution test 均非空：
+
+```bash
+python -m aidetect.manifest \
+  --input benchmark/candidate_manifest.jsonl \
+  --output benchmark/frozen_manifest.jsonl \
+  --metadata-output benchmark/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --seed 2026 \
+  --train-fraction 0.6 \
+  --calibration-fraction 0.2 \
+  --held-out-generator generator-id
+```
+
+相对 `text_path` 默认基于输入 manifest 所在目录解析。仅验证不便公开文本的
+metadata-only manifest 时可显式使用 `--skip-text-file-checks`；此选项不会跳过
+schema、ID、lineage、哈希唯一性或无泄漏划分检查。
+
 ### 项目结构
 
 ```

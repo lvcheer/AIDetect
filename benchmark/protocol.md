@@ -137,6 +137,15 @@ A deterministic split script will record its random seed and input manifest
 hash. Any post-freeze correction requires a new manifest version and a written
 change note.
 
+The `aidetect.manifest` implementation accepts a schema-valid candidate
+manifest whose `split` and `evaluation_partition` values are placeholders. It
+first isolates existing dry-run components, then assigns every component that
+contains a prespecified held-out AI generator to `test/generator_held_out`.
+Remaining source and near-duplicate components are ordered by a seeded SHA-256
+key and allocated to non-empty train, calibration, and in-distribution test
+splits using explicit component-level proportions. The output metadata records
+the assignment-method version and the input, schema, and output hashes.
+
 ## Benchmark procedure
 
 ### Before the full run
