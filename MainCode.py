@@ -16,6 +16,9 @@ import pandas as pd
 import re
 import threading
 
+from aidetect.inference import infer_raw_score
+from aidetect.models import MODEL_REGISTRY, find_ai_label_index, local_model_path
+
 # 确保中文显示正常
 import matplotlib
 matplotlib.use('Agg')  # 避免tkinter和matplotlib冲突
@@ -48,17 +51,9 @@ class MultiModelAIDetectorGUI:
         
         # 初始化变量
         self.detector = None
-        self.model_list = {
-            "中文优先（RoBERTa）":         "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
-            "中文新版（AIGC v2）":          "yuchuantian/AIGC_detector_zhv2",
-            "英文通用（OpenAI Detector）":  "roberta-base-openai-detector",
-            "英文新版（TMR Detector）":     "Oxidane/tmr-ai-text-detector",
-            "多语言（ChatGPT Detector）":   "Hello-SimpleAI/chatgpt-detector-roberta",
-        }
+        self.model_list = dict(MODEL_REGISTRY)
         # 将 HuggingFace model_id 映射到本地目录名（与 download_models.py 保持一致）
-        self._local_model_path = lambda model_id: os.path.join(
-            MODELS_DIR, model_id.replace("/", "__")
-        )
+        self._local_model_path = lambda model_id: local_model_path(MODELS_DIR, model_id)
         self.current_model = tk.StringVar(value=list(self.model_list.keys())[0])
         self.is_detecting = False
         # 灵敏度阈值：高于此值判定为AI（默认50%）
@@ -193,12 +188,7 @@ class MultiModelAIDetectorGUI:
 
                 # 自动检测哪个标签对应 AI（不同模型标签顺序不同）
                 # 使用子串匹配，兼容 "ChatGPT"、"Fake"、"AIGC"、"AI-generated" 等各种写法
-                ai_keywords = {"fake", "chatgpt", "ai", "machine", "generated", "aigc"}
-                self.ai_label_idx = 1  # 默认
-                for idx, label in self.model.config.id2label.items():
-                    if any(kw in label.lower() for kw in ai_keywords):
-                        self.ai_label_idx = idx
-                        break
+                self.ai_label_idx = find_ai_label_index(self.model.config.id2label)
 
                 detected_label = self.model.config.id2label.get(self.ai_label_idx, "?")
                 self.root.after(0, lambda: self.status_var.set(
@@ -295,27 +285,22 @@ class MultiModelAIDetectorGUI:
     def _detect_sentence(self, sentence):
         """检测文本片段AI概率（sentence 可以是带上下文的窗口文本）"""
         try:
-            inputs = self.tokenizer(
-                sentence,
-                return_tensors="pt",
-                truncation=True,
-                max_length=512,
-                padding=True
-            ).to(self.device)
-            
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-            
-            probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
             ai_idx = getattr(self, 'ai_label_idx', 1)
-            ai_prob = probabilities[0][ai_idx].item() * 100
+            raw_score = infer_raw_score(
+                sentence,
+                tokenizer=self.tokenizer,
+                model=self.model,
+                device=self.device,
+                ai_label_index=ai_idx,
+            )
+            ai_prob = raw_score.ai_score * 100
             human_prob = 100 - ai_prob  # 兼容多标签模型，不依赖 1-ai_idx
             
             return {
                 "sentence": sentence,
                 "ai_prob": round(ai_prob, 2),
                 "human_prob": round(human_prob, 2),
-                "is_ai": ai_prob > 50
+                "is_ai": raw_score.is_ai
             }
         except Exception as e:
             return {
