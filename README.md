@@ -92,8 +92,8 @@ cd AIDetect
 python3.11 -m venv .venv311
 source .venv311/bin/activate   # Windows: .venv311\Scripts\activate
 
-# 3. 安装依赖
-pip install torch transformers pandas matplotlib
+# 3. 安装项目及依赖
+pip install -e .
 
 # 4. 下载分类器模型（首次需要，约 1.5GB）
 python download_models.py
@@ -101,6 +101,14 @@ python download_models.py
 # 5. 运行
 python MainCode.py
 ```
+
+运行测试：
+
+```bash
+python3.11 -m unittest discover -s tests -v
+```
+
+如需使用 pytest，可安装测试依赖：`pip install -e ".[test]"`。
 
 ### 批量 CLI
 
@@ -114,6 +122,8 @@ python -m aidetect \
   --model roberta-base-openai-detector
 ```
 
+安装项目后也可以直接使用 `aidetect` 命令，参数与 `python -m aidetect` 相同。
+
 添加 `--perplexity` 可启用现有 GPT-2 困惑度特征。输出包含模型来源、
 设备、raw classifier score、启发式特征分数和 fused score。这些分数尚未
 校准，不是概率。
@@ -123,6 +133,7 @@ python -m aidetect \
 ```
 AIDetect/
 ├── MainCode.py              # GUI 入口
+├── pyproject.toml           # 项目元数据、依赖和 CLI 入口
 ├── aidetect/                # 可复用推理、特征、融合、schema 和 CLI
 ├── benchmark/               # benchmark 协议、manifest schema 和指标
 ├── tests/                   # 单元测试
