@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lvcheer/AIDetect/benchmark/dataset_manifest_schema.json",
+  "title": "AIDetect benchmark dataset manifest record",
+  "description": "Schema for one text record. All derivatives of the same source must share source_id and must not cross splits.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_id",
+    "source_id",
+    "language",
+    "domain",
+    "human_or_ai",
+    "generator",
+    "generator_revision",
+    "prompt_id",
+    "temperature",
+    "editing_condition",
+    "author_group",
+    "license",
+    "provenance_uri",
+    "text_path",
+    "text_sha256",
+    "split",
+    "evaluation_partition",
+    "near_duplicate_cluster_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "document_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this observed text."
+    },
+    "source_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Leakage-group identifier shared by an original source and all edits, translations, paraphrases, continuations, and segments derived from it."
+    },
+    "language": {
+      "type": "string",
+      "enum": ["zh", "en"]
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Prespecified writing domain such as academic, general, application, or professional."
+    },
+    "human_or_ai": {
+      "type": "string",
+      "enum": ["human", "ai"],
+      "description": "Provenance-based benchmark reference label, not a detector-derived label."
+    },
+    "generator": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Generator identifier for AI records; null for human records."
+    },
+    "generator_revision": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Model version, checkpoint, or dated API version when known."
+    },
+    "prompt_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Identifier for the generation prompt; null for human records."
+    },
+    "temperature": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Generation temperature when known; null when unavailable or not applicable."
+    },
+    "editing_condition": {
+      "type": "string",
+      "enum": [
+        "original",
+        "human_light_edit",
+        "human_deep_edit",
+        "machine_paraphrase"
+      ]
+    },
+    "author_group": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Optional lawful and reliably sourced author grouping; null otherwise."
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Dataset or document licence/SPDX identifier, or a documented permission category."
+    },
+    "provenance_uri": {
+      "type": ["string", "null"],
+      "format": "uri-reference",
+      "description": "Source or provenance reference. May be null when disclosure is restricted but provenance must remain documented privately."
+    },
+    "text_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path or storage key for the exact evaluated text."
+    },
+    "text_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$",
+      "description": "SHA-256 of the exact text bytes used by the benchmark."
+    },
+    "split": {
+      "type": "string",
+      "enum": ["train", "calibration", "test", "dry_run"]
+    },
+    "evaluation_partition": {
+      "type": "string",
+      "enum": [
+        "in_distribution",
+        "generator_held_out",
+        "domain_held_out",
+        "time_held_out",
+        "pipeline_dry_run"
+      ]
+    },
+    "near_duplicate_cluster_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Identifier assigned by near-duplicate detection. Cluster members must remain in one split."
+    },
+    "parent_document_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "Immediate parent for an edited or paraphrased record."
+    },
+    "collection_date": {
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "character_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "word_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "human_or_ai": {
+            "const": "human"
+          }
+        },
+        "required": ["human_or_ai"]
+      },
+      "then": {
+        "properties": {
+          "generator": {
+            "type": "null"
+          },
+          "generator_revision": {
+            "type": "null"
+          },
+          "prompt_id": {
+            "type": "null"
+          },
+          "temperature": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "human_or_ai": {
+            "const": "ai"
+          }
+        },
+        "required": ["human_or_ai"]
+      },
+      "then": {
+        "properties": {
+          "generator": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "split": {
+            "const": "dry_run"
+          }
+        },
+        "required": ["split"]
+      },
+      "then": {
+        "properties": {
+          "evaluation_partition": {
+            "const": "pipeline_dry_run"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evaluation_partition": {
+            "enum": [
+              "generator_held_out",
+              "domain_held_out",
+              "time_held_out"
+            ]
+          }
+        },
+        "required": ["evaluation_partition"]
+      },
+      "then": {
+        "properties": {
+          "split": {
+            "const": "test"
+          }
+        }
+      }
+    }
+  ]
+}
