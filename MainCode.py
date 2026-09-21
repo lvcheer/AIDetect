@@ -10,12 +10,15 @@ if sys.stderr is None:
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
 import torch
-import math
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
 import pandas as pd
 import re
 import threading
 
+from aidetect.features import (
+    calculate_burstiness_feature,
+    calculate_perplexity_feature,
+)
 from aidetect.inference import infer_raw_score
 from aidetect.models import MODEL_REGISTRY, find_ai_label_index, local_model_path
 
@@ -230,37 +233,27 @@ class MultiModelAIDetectorGUI:
             threading.Thread(target=load_ppl, daemon=True).start()
 
     def _calculate_perplexity_score(self, text):
-        """用 GPT-2 计算困惑度并转换为AI概率（困惑度低=AI概率高）"""
+        """用 GPT-2 计算困惑度并转换为现有启发式分数。"""
         try:
-            inputs = self.ppl_tokenizer(
-                text, return_tensors="pt", truncation=True, max_length=512
-            ).to(self.ppl_model.device)
-            input_ids = inputs["input_ids"]
-            with torch.no_grad():
-                loss = self.ppl_model(input_ids, labels=input_ids).loss
-            perplexity = torch.exp(loss).item()
-            # sigmoid 转换：困惑度中心点约 40，越低越像AI
-            ai_prob = 1 / (1 + math.exp((perplexity - 40) / 12)) * 100
-            return round(ai_prob, 2), round(perplexity, 2)
+            feature = calculate_perplexity_feature(
+                text,
+                tokenizer=self.ppl_tokenizer,
+                model=self.ppl_model,
+            )
+            return round(feature.heuristic_score, 2), round(feature.perplexity, 2)
         except Exception:
             return None, None
 
     def _calculate_burstiness_score(self, text):
-        """计算句子长度突发性（CV），低突发性=AI概率高
+        """计算句子长度突发性（CV）与现有启发式分数。
         人类写作忽长忽短（CV高），AI写作长度均匀（CV低）"""
-        sentences = [s.strip() for s in re.split(r'[。！？；.!?;]', text) if len(s.strip()) > 5]
-        if len(sentences) < 3:
+        feature = calculate_burstiness_feature(text)
+        if feature is None:
             return None, None
-        lengths = [len(s) for s in sentences]
-        mean_len = sum(lengths) / len(lengths)
-        if mean_len == 0:
-            return None, None
-        variance = sum((l - mean_len) ** 2 for l in lengths) / len(lengths)
-        std_len = variance ** 0.5
-        cv = std_len / mean_len  # 变异系数：越低越均匀越像AI
-        # sigmoid：CV中心点0.4，低CV→高AI概率
-        ai_prob = 1 / (1 + math.exp((cv - 0.4) / 0.15)) * 100
-        return round(ai_prob, 2), round(cv, 3)
+        return (
+            round(feature.heuristic_score, 2),
+            round(feature.coefficient_of_variation, 3),
+        )
 
     def _split_text(self, text):
         """按段落分割文本，保留完整语义单元"""
