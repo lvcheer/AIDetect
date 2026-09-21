@@ -9,13 +9,16 @@ if sys.stderr is None:
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
-import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
 import pandas as pd
 import re
 import threading
 
-from aidetect.models import MODEL_REGISTRY, find_ai_label_index, local_model_path
+from aidetect.models import (
+    MODEL_REGISTRY,
+    load_classifier,
+    load_perplexity_model,
+    resolve_model_source,
+)
 from aidetect.pipeline import detect_text
 from aidetect.schema import RESULT_SCHEMA_VERSION
 
@@ -52,8 +55,6 @@ class MultiModelAIDetectorGUI:
         # 初始化变量
         self.detector = None
         self.model_list = dict(MODEL_REGISTRY)
-        # 将 HuggingFace model_id 映射到本地目录名（与 download_models.py 保持一致）
-        self._local_model_path = lambda model_id: local_model_path(MODELS_DIR, model_id)
         self.current_model = tk.StringVar(value=list(self.model_list.keys())[0])
         self.is_detecting = False
         # 灵敏度阈值：高于此值判定为AI（默认50%）
@@ -168,27 +169,19 @@ class MultiModelAIDetectorGUI:
         def load_model():
             try:
                 model_id = self.model_list[self.current_model.get()]
-                local_path = self._local_model_path(model_id)
+                source = resolve_model_source(MODELS_DIR, model_id)
 
                 # 优先使用本地模型，本地不存在时从网络下载
-                if os.path.exists(local_path):
-                    source = local_path
+                if source != model_id:
                     self.root.after(0, lambda: self.status_var.set("状态：加载中 - 读取本地模型..."))
                 else:
-                    source = model_id
                     self.root.after(0, lambda: self.status_var.set("状态：加载中 - 本地模型不存在，从网络下载..."))
 
-                self.tokenizer = AutoTokenizer.from_pretrained(source)
-                self.model = AutoModelForSequenceClassification.from_pretrained(source)
-
-                # 设置设备
-                self.device = "cuda" if torch.cuda.is_available() else "cpu"
-                self.model.to(self.device)
-                self.model.eval()
-
-                # 自动检测哪个标签对应 AI（不同模型标签顺序不同）
-                # 使用子串匹配，兼容 "ChatGPT"、"Fake"、"AIGC"、"AI-generated" 等各种写法
-                self.ai_label_idx = find_ai_label_index(self.model.config.id2label)
+                loaded = load_classifier(model_id, MODELS_DIR)
+                self.tokenizer = loaded.tokenizer
+                self.model = loaded.model
+                self.device = loaded.device
+                self.ai_label_idx = loaded.ai_label_index
 
                 detected_label = self.model.config.id2label.get(self.ai_label_idx, "?")
                 self.root.after(0, lambda: self.status_var.set(
@@ -217,11 +210,11 @@ class MultiModelAIDetectorGUI:
             self.status_var.set("状态：加载中 - 正在下载困惑度模型（GPT-2中文，约400MB）...")
             def load_ppl():
                 try:
-                    ppl_model_id = "uer/gpt2-chinese-cluecorpussmall"
-                    self.ppl_tokenizer = AutoTokenizer.from_pretrained(ppl_model_id)
-                    self.ppl_model = AutoModelForCausalLM.from_pretrained(ppl_model_id)
-                    self.ppl_model.to(self.device if hasattr(self, 'device') else 'cpu')
-                    self.ppl_model.eval()
+                    loaded = load_perplexity_model(
+                        device=self.device if hasattr(self, "device") else "cpu"
+                    )
+                    self.ppl_tokenizer = loaded.tokenizer
+                    self.ppl_model = loaded.model
                     self.root.after(0, lambda: self.status_var.set("状态：就绪 - 困惑度模型加载完成"))
                 except Exception as e:
                     msg = str(e)
