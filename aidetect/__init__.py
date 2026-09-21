@@ -7,7 +7,7 @@ from .features import (
     calculate_perplexity_feature,
 )
 from .fusion import fuse_heuristic_scores
-from .inference import RawScore, infer_raw_score
+from .inference import RawScore, TokenizationInfo, infer_raw_score, inspect_tokenization
 from .models import (
     MODEL_REGISTRY,
     PERPLEXITY_MODEL_ID,
@@ -32,12 +32,14 @@ __all__ = [
     "PerplexityFeature",
     "RESULT_SCHEMA_VERSION",
     "RawScore",
+    "TokenizationInfo",
     "calculate_burstiness_feature",
     "calculate_perplexity_feature",
     "detect_text",
     "find_ai_label_index",
     "fuse_heuristic_scores",
     "infer_raw_score",
+    "inspect_tokenization",
     "load_classifier",
     "load_perplexity_model",
     "local_model_path",

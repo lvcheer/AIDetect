@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import torch
 
-from aidetect.inference import infer_raw_score
+from aidetect.inference import infer_raw_score, inspect_tokenization
 
 
 class FakeBatch(dict):
@@ -13,6 +13,8 @@ class FakeBatch(dict):
 
 
 class FakeTokenizer:
+    truncation_side = "left"
+
     def __init__(self):
         self.last_call = None
 
@@ -30,6 +32,15 @@ class FakeModel:
 
 
 class RawInferenceTests(unittest.TestCase):
+    def test_reports_effective_length_and_truncation_direction(self):
+        result = inspect_tokenization("example", FakeTokenizer(), max_length=2)
+
+        self.assertEqual(result.input_token_length, 3)
+        self.assertEqual(result.effective_token_length, 2)
+        self.assertEqual(result.max_length, 2)
+        self.assertTrue(result.truncated)
+        self.assertEqual(result.truncation_side, "left")
+
     def test_returns_uncalibrated_ai_score(self):
         tokenizer = FakeTokenizer()
         result = infer_raw_score(

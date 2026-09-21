@@ -174,6 +174,14 @@ Raw detector scores, perplexity-derived scores, and burstiness-derived scores
 remain separate in the baseline. No manually weighted composite is a primary
 baseline unless it was prespecified independently of test results.
 
+The `aidetect.benchmark_runner` baseline writes a unit-interval AI-class score
+and the complete class-score vector without rounding. A classifier failure is
+stored with a null score and an error status, never as a zero or human result.
+Raw text is read from the validated manifest but is not copied into the result
+file. Run metadata stores the configuration and result hashes, runtime
+environment, confirmed AI label, model source, and immutable revision or local
+model-directory hash.
+
 ### Analysis sequence
 
 1. Report coverage and failure rates.

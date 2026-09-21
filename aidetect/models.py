@@ -24,6 +24,7 @@ class LoadedClassifier:
     device: str
     ai_label_index: int
     source: object
+    resolved_revision: object = None
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,15 @@ class LoadedPerplexityModel:
     model: object
     device: str
     source: str
+    resolved_revision: object = None
+
+
+def _resolved_revision(tokenizer, model, requested_revision=None):
+    model_revision = getattr(getattr(model, "config", None), "_commit_hash", None)
+    tokenizer_revision = (getattr(tokenizer, "init_kwargs", {}) or {}).get(
+        "_commit_hash"
+    )
+    return model_revision or tokenizer_revision or requested_revision
 
 
 def local_model_path(models_dir, model_id):
@@ -68,6 +78,8 @@ def load_classifier(
     tokenizer_loader=None,
     model_loader=None,
     torch_module=None,
+    revision=None,
+    ai_label_index=None,
 ):
     """Load and prepare one sequence classifier using the existing policy."""
     if tokenizer_loader is None or model_loader is None:
@@ -79,18 +91,25 @@ def load_classifier(
         import torch as torch_module
 
     source = resolve_model_source(models_dir, model_id)
-    tokenizer = tokenizer_loader(source)
-    model = model_loader(source)
+    load_kwargs = {"revision": revision} if revision and source == model_id else {}
+    tokenizer = tokenizer_loader(source, **load_kwargs)
+    model = model_loader(source, **load_kwargs)
     device = "cuda" if torch_module.cuda.is_available() else "cpu"
     model.to(device)
     model.eval()
-    ai_label_index = find_ai_label_index(model.config.id2label)
+    if ai_label_index is None:
+        ai_label_index = find_ai_label_index(model.config.id2label)
     return LoadedClassifier(
         tokenizer=tokenizer,
         model=model,
         device=device,
         ai_label_index=ai_label_index,
         source=source,
+        resolved_revision=_resolved_revision(
+            tokenizer,
+            model,
+            requested_revision=(revision if source == model_id else None),
+        ),
     )
 
 
@@ -99,6 +118,7 @@ def load_perplexity_model(
     model_id=PERPLEXITY_MODEL_ID,
     tokenizer_loader=None,
     model_loader=None,
+    revision=None,
 ):
     """Load and prepare the existing causal language model feature."""
     if tokenizer_loader is None or model_loader is None:
@@ -107,8 +127,9 @@ def load_perplexity_model(
         tokenizer_loader = tokenizer_loader or AutoTokenizer.from_pretrained
         model_loader = model_loader or AutoModelForCausalLM.from_pretrained
 
-    tokenizer = tokenizer_loader(model_id)
-    model = model_loader(model_id)
+    load_kwargs = {"revision": revision} if revision else {}
+    tokenizer = tokenizer_loader(model_id, **load_kwargs)
+    model = model_loader(model_id, **load_kwargs)
     model.to(device)
     model.eval()
     return LoadedPerplexityModel(
@@ -116,4 +137,5 @@ def load_perplexity_model(
         model=model,
         device=device,
         source=model_id,
+        resolved_revision=_resolved_revision(tokenizer, model, revision),
     )

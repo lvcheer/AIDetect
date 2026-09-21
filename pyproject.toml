@@ -31,6 +31,7 @@ test = ["pytest>=8,<9"]
 
 [project.scripts]
 aidetect = "aidetect.cli:main"
+aidetect-benchmark = "aidetect.benchmark_runner:main"
 
 [project.urls]
 Repository = "https://github.com/lvcheer/AIDetect"

@@ -153,6 +153,35 @@ python -m aidetect.manifest \
 metadata-only manifest 时可显式使用 `--skip-text-file-checks`；此选项不会跳过
 schema、ID、lineage、哈希唯一性或无泄漏划分检查。
 
+### Benchmark runner
+
+runner 只接受与 split metadata 哈希一致的 frozen manifest。模型 revision 和代码
+commit 必须使用完整的 40 位 commit，AI 标签索引及最大 token 长度也必须显式
+确认：
+
+```bash
+python -m aidetect.benchmark_runner \
+  --manifest benchmark/frozen_manifest.jsonl \
+  --split-metadata benchmark/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --output benchmark/results_raw.jsonl \
+  --run-metadata-output benchmark/run_metadata.json \
+  --run-id baseline-model-1 \
+  --code-commit <40-character-git-commit> \
+  --model roberta-base-openai-detector \
+  --model-revision <40-character-model-commit> \
+  --ai-label-index 1 \
+  --max-length 512 \
+  --include-split dry_run
+```
+
+安装项目后可将 `python -m aidetect.benchmark_runner` 替换为
+`aidetect-benchmark`。逐样本结果包含完整类别分数、raw AI score、字符和 token
+长度、截断方向、耗时、设备及错误状态，但不包含原文或手工融合分数。分类器失败
+时 raw score 为 `null`，不会替换为零。`--include-split` 为必填参数，可重复使用，
+从而避免意外混合 dry-run 与正式分区；添加
+`--perplexity --perplexity-revision <commit>` 可单独记录困惑度特征。
+
 ### 项目结构
 
 ```

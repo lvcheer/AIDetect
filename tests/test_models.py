@@ -87,6 +87,40 @@ class LabelMappingTests(unittest.TestCase):
 
 
 class ModelLoadingTests(unittest.TestCase):
+    def test_classifier_loader_passes_remote_revision_and_explicit_label(self):
+        loaded_calls = []
+        model = FakeModel({0: "AI-generated", 1: "Human"})
+        model.config._commit_hash = "resolved-commit"
+
+        def load_tokenizer(source, **kwargs):
+            loaded_calls.append(("tokenizer", source, kwargs))
+            return "tokenizer"
+
+        def load_model(source, **kwargs):
+            loaded_calls.append(("model", source, kwargs))
+            return model
+
+        with tempfile.TemporaryDirectory() as directory:
+            loaded = load_classifier(
+                "owner/model",
+                directory,
+                tokenizer_loader=load_tokenizer,
+                model_loader=load_model,
+                torch_module=FakeTorchWithoutCuda,
+                revision="requested-commit",
+                ai_label_index=1,
+            )
+
+        self.assertEqual(
+            loaded_calls,
+            [
+                ("tokenizer", "owner/model", {"revision": "requested-commit"}),
+                ("model", "owner/model", {"revision": "requested-commit"}),
+            ],
+        )
+        self.assertEqual(loaded.ai_label_index, 1)
+        self.assertEqual(loaded.resolved_revision, "resolved-commit")
+
     def test_classifier_loader_prepares_model_and_label_mapping(self):
         loaded_sources = []
         model = FakeModel({0: "AI-generated", 1: "Human"})
