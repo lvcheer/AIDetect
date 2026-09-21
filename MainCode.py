@@ -15,14 +15,9 @@ import pandas as pd
 import re
 import threading
 
-from aidetect.features import (
-    calculate_burstiness_feature,
-    calculate_perplexity_feature,
-)
-from aidetect.fusion import fuse_heuristic_scores
-from aidetect.inference import infer_raw_score
 from aidetect.models import MODEL_REGISTRY, find_ai_label_index, local_model_path
-from aidetect.schema import DetectionRecord, RESULT_SCHEMA_VERSION
+from aidetect.pipeline import detect_text
+from aidetect.schema import RESULT_SCHEMA_VERSION
 
 # 确保中文显示正常
 import matplotlib
@@ -234,29 +229,6 @@ class MultiModelAIDetectorGUI:
                     self.root.after(0, lambda: messagebox.showerror("加载失败", f"困惑度模型下载失败：{msg}"))
             threading.Thread(target=load_ppl, daemon=True).start()
 
-    def _calculate_perplexity_score(self, text):
-        """用 GPT-2 计算困惑度并转换为现有启发式分数。"""
-        try:
-            feature = calculate_perplexity_feature(
-                text,
-                tokenizer=self.ppl_tokenizer,
-                model=self.ppl_model,
-            )
-            return round(feature.heuristic_score, 2), round(feature.perplexity, 2)
-        except Exception:
-            return None, None
-
-    def _calculate_burstiness_score(self, text):
-        """计算句子长度突发性（CV）与现有启发式分数。
-        人类写作忽长忽短（CV高），AI写作长度均匀（CV低）"""
-        feature = calculate_burstiness_feature(text)
-        if feature is None:
-            return None, None
-        return (
-            round(feature.heuristic_score, 2),
-            round(feature.coefficient_of_variation, 3),
-        )
-
     def _split_text(self, text):
         """按段落分割文本，保留完整语义单元"""
         # 优先按空行分段（双换行）
@@ -276,67 +248,6 @@ class MultiModelAIDetectorGUI:
             paragraphs = [text.strip()]
 
         return paragraphs
-
-    def _detect_sentence(self, sentence):
-        """检测文本片段AI概率（sentence 可以是带上下文的窗口文本）"""
-        try:
-            ai_idx = getattr(self, 'ai_label_idx', 1)
-            raw_score = infer_raw_score(
-                sentence,
-                tokenizer=self.tokenizer,
-                model=self.model,
-                device=self.device,
-                ai_label_index=ai_idx,
-            )
-            ai_prob = raw_score.ai_score * 100
-            human_prob = 100 - ai_prob  # 兼容多标签模型，不依赖 1-ai_idx
-            
-            return {
-                "sentence": sentence,
-                "ai_prob": round(ai_prob, 2),
-                "human_prob": round(human_prob, 2),
-                "is_ai": raw_score.is_ai
-            }
-        except Exception as e:
-            return {
-                "sentence": sentence,
-                "ai_prob": 0.0,
-                "human_prob": 0.0,
-                "is_ai": False,
-                "error": str(e)
-            }
-
-    def _generate_explanation(self, ai_prob, ppl_value=None, burstiness_cv=None):
-        """生成多维度检测原因解释"""
-        # 基础结论
-        if ai_prob < 30:
-            base = "文本符合人类写作特征，语言自然，逻辑有正常波动，无明显AI痕迹。"
-        elif ai_prob < 70:
-            base = "文本疑似混合生成，部分语句结构较规整，存在AI特征但仍有人类表达痕迹。"
-        else:
-            base = "文本高度疑似AI生成，语言过于规范，句式模板化，缺少人类写作的情感起伏。"
-
-        parts = [base]
-
-        # 困惑度维度解释
-        if ppl_value is not None:
-            if ppl_value < 25:
-                parts.append(f"困惑度 {ppl_value}（极低）：文本对语言模型几乎没有意外，流畅度异常高，强烈暗示AI生成。")
-            elif ppl_value < 45:
-                parts.append(f"困惑度 {ppl_value}（偏低）：文本较为流畅规律，有一定AI生成可能。")
-            else:
-                parts.append(f"困惑度 {ppl_value}（正常）：文本流畅度在人类写作正常范围内。")
-
-        # 突发性维度解释
-        if burstiness_cv is not None:
-            if burstiness_cv < 0.2:
-                parts.append(f"突发性 CV={burstiness_cv}（极低）：句子长度高度均匀，缺乏人类写作的节奏变化，强烈暗示AI生成。")
-            elif burstiness_cv < 0.4:
-                parts.append(f"突发性 CV={burstiness_cv}（偏低）：句子长度较均匀，AI风格明显。")
-            else:
-                parts.append(f"突发性 CV={burstiness_cv}（正常）：句子长度有自然波动，符合人类写作节奏。")
-
-        return " | ".join(parts)
 
     def _start_detection(self):
         """开始检测（后台线程执行，避免界面卡死）"""
@@ -408,65 +319,32 @@ class MultiModelAIDetectorGUI:
 
                 # 2. 整体检测：全文一次性送入模型，得到最准确的整体得分
                 ui_set_status("状态：检测中 - 分析整体文本...")
-                overall_res = self._detect_sentence(text)
-                overall_classifier_score = overall_res["ai_prob"]
                 use_ppl = self.use_perplexity.get() and self.ppl_model is not None
-
-                # 整体：困惑度 + 突发性
-                overall_ppl_value = None
-                overall_burst_cv = None
-                ppl_ai_prob_val = None
-                burst_ai_prob_val = None
-
-                if use_ppl:
-                    ppl_ai_prob_val, overall_ppl_value = self._calculate_perplexity_score(text)
-                burst_ai_prob_val, overall_burst_cv = self._calculate_burstiness_score(text)
-
-                overall_ai = fuse_heuristic_scores(
-                    overall_classifier_score,
-                    perplexity_score=ppl_ai_prob_val,
-                    burstiness_score=burst_ai_prob_val,
+                ppl_tokenizer = self.ppl_tokenizer if use_ppl else None
+                ppl_model = self.ppl_model if use_ppl else None
+                overall_record = detect_text(
+                    text,
+                    tokenizer=self.tokenizer,
+                    model=self.model,
+                    device=self.device,
+                    ai_label_index=getattr(self, "ai_label_idx", 1),
+                    perplexity_tokenizer=ppl_tokenizer,
+                    perplexity_model=ppl_model,
                 )
+                overall_ai = overall_record.fused_score
 
                 # 3. 逐段检测：每段作为完整语义单元送入模型
                 results = []
                 records = []
                 for idx, paragraph in enumerate(sentences, 1):
-                    res = self._detect_sentence(paragraph)
-                    res["sentence"] = paragraph
-                    raw_classifier_score = res["ai_prob"]
-                    para_ppl_value = None
-                    para_burst_cv = None
-
-                    para_ppl_prob = None
-                    para_burst_prob = None
-
-                    if use_ppl:
-                        para_ppl_prob, para_ppl_value = self._calculate_perplexity_score(paragraph)
-
-                    para_burst_prob, para_burst_cv = self._calculate_burstiness_score(paragraph)
-
-                    fused_score = fuse_heuristic_scores(
-                        raw_classifier_score,
-                        perplexity_score=para_ppl_prob,
-                        burstiness_score=para_burst_prob,
-                    )
-                    explanation = self._generate_explanation(
-                        fused_score,
-                        ppl_value=para_ppl_value,
-                        burstiness_cv=para_burst_cv,
-                    )
-                    record = DetectionRecord(
-                        text=paragraph,
-                        raw_classifier_score=raw_classifier_score,
-                        raw_classifier_is_ai=res["is_ai"],
-                        perplexity_value=para_ppl_value,
-                        perplexity_heuristic_score=para_ppl_prob,
-                        burstiness_cv=para_burst_cv,
-                        burstiness_heuristic_score=para_burst_prob,
-                        fused_score=fused_score,
-                        explanation=explanation,
-                        error=res.get("error"),
+                    record = detect_text(
+                        paragraph,
+                        tokenizer=self.tokenizer,
+                        model=self.model,
+                        device=self.device,
+                        ai_label_index=getattr(self, "ai_label_idx", 1),
+                        perplexity_tokenizer=ppl_tokenizer,
+                        perplexity_model=ppl_model,
                     )
                     records.append(record)
                     res = record.to_legacy_dict()
@@ -497,33 +375,16 @@ class MultiModelAIDetectorGUI:
                     else '基本判定为人类生成'
                 )
                 overall_extra = []
-                if use_ppl and overall_ppl_value is not None:
-                    overall_extra.append(f"困惑度：{overall_ppl_value}")
-                if overall_burst_cv is not None:
-                    overall_extra.append(f"突发性CV：{overall_burst_cv}")
+                if use_ppl and overall_record.perplexity_value is not None:
+                    overall_extra.append(f"困惑度：{overall_record.perplexity_value}")
+                if overall_record.burstiness_cv is not None:
+                    overall_extra.append(f"突发性CV：{overall_record.burstiness_cv}")
                 overall_info_str = ("  |  " + "  |  ".join(overall_extra) + "\n") if overall_extra else ""
-                overall_explanation = self._generate_explanation(
-                    overall_ai,
-                    ppl_value=overall_ppl_value,
-                    burstiness_cv=overall_burst_cv
-                )
-                overall_record = DetectionRecord(
-                    text=text,
-                    raw_classifier_score=overall_classifier_score,
-                    raw_classifier_is_ai=overall_res["is_ai"],
-                    perplexity_value=overall_ppl_value,
-                    perplexity_heuristic_score=ppl_ai_prob_val,
-                    burstiness_cv=overall_burst_cv,
-                    burstiness_heuristic_score=burst_ai_prob_val,
-                    fused_score=overall_ai,
-                    explanation=overall_explanation,
-                    error=overall_res.get("error"),
-                )
                 ui_insert(
                     f"\n{'='*80}\n整体检测结果（全文分析）：\n"
                     f"综合AI生成概率：{overall_ai}%  |  人类概率：{round(100 - overall_ai, 2)}%\n"
                     f"{overall_info_str}"
-                    f"分析：{overall_explanation}\n"
+                    f"分析：{overall_record.explanation}\n"
                     f"结论：{conclusion}\n"
                 )
                 ui_finish(overall_record, results, records)
