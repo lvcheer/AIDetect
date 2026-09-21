@@ -6,6 +6,7 @@ from .features import (
     calculate_burstiness_feature,
     calculate_perplexity_feature,
 )
+from .fusion import fuse_heuristic_scores
 from .inference import RawScore, infer_raw_score
 from .models import MODEL_REGISTRY, find_ai_label_index, local_model_path
 
@@ -17,6 +18,7 @@ __all__ = [
     "calculate_burstiness_feature",
     "calculate_perplexity_feature",
     "find_ai_label_index",
+    "fuse_heuristic_scores",
     "infer_raw_score",
     "local_model_path",
 ]
