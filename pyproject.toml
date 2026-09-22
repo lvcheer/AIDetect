@@ -32,6 +32,7 @@ test = ["pytest>=8,<9"]
 [project.scripts]
 aidetect = "aidetect.cli:main"
 aidetect-benchmark = "aidetect.benchmark_runner:main"
+aidetect-local-preflight = "aidetect.local_generation:main"
 aidetect-screen-metadata = "aidetect.candidate_metadata:main"
 
 [project.urls]

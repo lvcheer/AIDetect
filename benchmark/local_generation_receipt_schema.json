@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lvcheer/AIDetect/benchmark/local_generation_receipt_schema.json",
+  "title": "AIDetect local generation receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "prompt_family_id",
+    "language",
+    "domain",
+    "length_band",
+    "prompt_sha256",
+    "model_id",
+    "model_revision",
+    "runtime",
+    "runtime_version",
+    "generation_config_sha256",
+    "generated_at",
+    "status",
+    "output_text",
+    "output_sha256",
+    "prompt_tokens",
+    "generation_tokens",
+    "finish_reason",
+    "elapsed_seconds",
+    "tokens_per_second",
+    "peak_memory_gb",
+    "measured_length",
+    "length_in_band",
+    "error_type",
+    "error_message"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "request_id": {"type": "string", "minLength": 1},
+    "prompt_family_id": {"type": "string", "minLength": 1},
+    "language": {"enum": ["zh", "en"]},
+    "domain": {"enum": ["general", "academic", "professional"]},
+    "length_band": {"enum": ["short", "medium", "long"]},
+    "prompt_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "model_id": {"type": "string", "minLength": 1},
+    "model_revision": {"type": "string", "minLength": 1},
+    "runtime": {"type": "string", "minLength": 1},
+    "runtime_version": {"type": "string", "minLength": 1},
+    "generation_config_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["success", "failed"]},
+    "output_text": {"type": ["string", "null"]},
+    "output_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "prompt_tokens": {"type": ["integer", "null"], "minimum": 0},
+    "generation_tokens": {"type": ["integer", "null"], "minimum": 0},
+    "finish_reason": {"type": ["string", "null"]},
+    "elapsed_seconds": {"type": ["number", "null"], "minimum": 0},
+    "tokens_per_second": {"type": ["number", "null"], "minimum": 0},
+    "peak_memory_gb": {"type": ["number", "null"], "minimum": 0},
+    "measured_length": {"type": ["integer", "null"], "minimum": 0},
+    "length_in_band": {"type": ["boolean", "null"]},
+    "error_type": {"type": ["string", "null"]},
+    "error_message": {"type": ["string", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "success"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "output_text": {"type": "string", "minLength": 1},
+          "output_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "measured_length": {"type": "integer", "minimum": 1},
+          "length_in_band": {"type": "boolean"},
+          "error_type": {"type": "null"},
+          "error_message": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "failed"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "output_text": {"type": "null"},
+          "output_sha256": {"type": "null"},
+          "measured_length": {"type": "null"},
+          "length_in_band": {"type": "null"},
+          "error_type": {"type": "string", "minLength": 1},
+          "error_message": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  ]
+}
