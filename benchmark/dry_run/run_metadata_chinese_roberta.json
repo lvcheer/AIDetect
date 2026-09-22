@@ -1,0 +1,65 @@
+{
+  "completed_at_utc": "2026-09-22T10:42:21.464092+00:00",
+  "configuration": {
+    "ai_label_index": 1,
+    "ai_label_name": "ChatGPT",
+    "code_commit": "08082f1dde8b9f235b157e22481947f596cb2113",
+    "immutable_model_revision": "2f0f5f2af59af169a3f236c14ffad0fa7d6f072b",
+    "immutable_perplexity_revision": null,
+    "included_splits": [
+      "dry_run"
+    ],
+    "manifest_sha256": "cd88bd9d547fba7c90ec7e5f62dc0cfdc4da422d530a1773f978bb7b84e84794",
+    "max_length": 512,
+    "model_artifact_sha256": null,
+    "model_id": "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
+    "perplexity_model_id": null,
+    "requested_model_revision": "2f0f5f2af59af169a3f236c14ffad0fa7d6f072b",
+    "requested_perplexity_revision": null,
+    "run_id": "dry-run-chinese-roberta-20260922",
+    "runner_version": "0.1",
+    "score_direction": "higher_is_more_ai_like",
+    "truncation_side": "right"
+  },
+  "configuration_sha256": "f61a55cfcbf145002cf3f798ed6466f798a0c42a11876ae94c3e90de7a25bed7",
+  "manifest_sha256": "cd88bd9d547fba7c90ec7e5f62dc0cfdc4da422d530a1773f978bb7b84e84794",
+  "model": {
+    "ai_label_index": 1,
+    "ai_label_name": "ChatGPT",
+    "artifact_sha256": null,
+    "class_labels": {
+      "0": "Human",
+      "1": "ChatGPT"
+    },
+    "device": "cpu",
+    "immutable_revision": "2f0f5f2af59af169a3f236c14ffad0fa7d6f072b",
+    "model_id": "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
+    "requested_revision": "2f0f5f2af59af169a3f236c14ffad0fa7d6f072b",
+    "resolved_revision": "2f0f5f2af59af169a3f236c14ffad0fa7d6f072b",
+    "source": "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
+    "tokenizer_class": "BertTokenizerFast",
+    "tokenizer_model_max_length": 512,
+    "truncation_side": "right"
+  },
+  "perplexity_model": null,
+  "record_count": 8,
+  "records_by_status": {
+    "success": 8
+  },
+  "results_sha256": "ac3ad25fc71c39c16f57383ce33da16e08299ab71b9cad90208ac73bb4c5c80f",
+  "run_metadata_schema_version": "0.1",
+  "runtime_environment": {
+    "packages": {
+      "jsonschema": "4.26.0",
+      "matplotlib": "3.11.2",
+      "pandas": "2.3.3",
+      "torch": "2.14.0",
+      "transformers": "4.57.6"
+    },
+    "platform": "macOS-15.7.9-arm64-arm-64bit",
+    "python": "3.11.15 (main, Mar  3 2026, 00:52:57) [Clang 17.0.0 (clang-1700.6.3.2)]"
+  },
+  "schema_sha256": "575ea539b35e0ccf23893956efb4993cb29e78cd5dae25236f147beae1501a9a",
+  "split_metadata_sha256": "7790ddff21f6bb154fc104c2dea314897bd5c0df78cd643d41a8215b87a41397",
+  "started_at_utc": "2026-09-22T10:42:17.424150+00:00"
+}
