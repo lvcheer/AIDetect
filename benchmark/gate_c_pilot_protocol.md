@@ -4,6 +4,13 @@ Protocol date: `2026-09-22`
 
 Status: **design specification only; no collection or generation authorised**
 
+Update `2026-09-22`: the full three-generator pilot is suspended because paid
+model execution was declined. Its design remains available if the required
+generator families are later restored. The currently active local-only route
+begins with the smaller, exploratory stage-zero plan in
+`gate_d_local_pilot_preparation.md`; stage zero is not a substitute for this
+confirmatory design.
+
 This protocol defines the pilot cells, prompt families, length bands, editing
 conditions, quality controls, and decision rules needed before formal sample
 counts can be frozen. It does not authorise API spending or data acquisition.

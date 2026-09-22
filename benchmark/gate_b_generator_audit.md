@@ -4,6 +4,13 @@ Audit date: `2026-09-22`
 
 Status: **Gate B planning evidence; no API calls or generated samples**
 
+Update `2026-09-22`: the user declined paid-model execution. The three API
+candidates below are retained as historical planning evidence but are inactive.
+They must not be called unless a later plan explicitly restores and re-approves
+paid execution. The active alternative is the scoped local-only preparation in
+`gate_d_local_pilot_preparation.md`; it does not preserve the confirmatory
+three-provider claims.
+
 ## Decision
 
 Use three provider-disjoint commercial API families for the formal design,
@@ -137,4 +144,3 @@ permitted, and evaluation results rather than full generated text.
   and <https://www.anthropic.com/news/expanded-legal-protections-api-improvements>
 - Qwen3 official repository and checkpoint licences:
   <https://github.com/QwenLM/Qwen3>
-

@@ -1,10 +1,16 @@
 # Formal Benchmark Data and Lawful-Source Plan
 
-Plan version: `0.3-draft`
+Plan version: `0.4-draft`
 
 Status: planning only. This document does not authorise data download,
 generation, annotation, or model execution. Every source and generator must be
 reviewed again when the benchmark is frozen.
+
+Current execution note (`2026-09-22`): paid generators are inactive at the
+user's request, so the confirmatory three-generator design is suspended. A
+local-only exploratory route is prepared in
+`gate_d_local_pilot_preparation.md`; it does not authorise installation,
+download, or generation and does not inherit the broader confirmatory claims.
 
 ## 1. Purpose and decision rule
 
