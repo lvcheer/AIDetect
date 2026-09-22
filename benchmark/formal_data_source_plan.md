@@ -1,6 +1,6 @@
 # Formal Benchmark Data and Lawful-Source Plan
 
-Plan version: `0.1-draft`
+Plan version: `0.2-draft`
 
 Status: planning only. This document does not authorise data download,
 generation, annotation, or model execution. Every source and generator must be
@@ -164,6 +164,10 @@ Gate A reviews use `source_eligibility_review_template.md`; the initial
 Chinese-source findings are recorded in `gate_a_source_audit.md`, and the
 collection-level quantity check is recorded in
 `gate_a_metadata_inventory.md`.
+
+Gate B uses `generator_eligibility_review_template.md`; its evidence,
+provisional role assignment, version controls, and budget rule are recorded in
+`gate_b_generator_audit.md`.
 
 | Candidate | Proposed role | Current status | Required action before use |
 |---|---|---|---|
