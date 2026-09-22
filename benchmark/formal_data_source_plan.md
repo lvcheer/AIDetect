@@ -1,6 +1,6 @@
 # Formal Benchmark Data and Lawful-Source Plan
 
-Plan version: `0.2-draft`
+Plan version: `0.3-draft`
 
 Status: planning only. This document does not authorise data download,
 generation, annotation, or model execution. Every source and generator must be
@@ -96,8 +96,11 @@ segments from one lineage does not increase the effective sample count.
 
 ### Pilot, excluded from final testing
 
-Collect `10–20` eligible lineages per planned language × domain × provenance or
-generator cell. The pilot will estimate:
+Gate C fixes the initial allocation at `12` human lineages and `12` AI topic-
+packet components per language × domain, balanced four per provisional length
+band. Each AI component is rendered once by all three generator families, so
+generator outputs are paired derivatives rather than independent lineages. The
+pilot will estimate:
 
 - eligibility, retrieval, generation, annotation, and detector failure rates;
 - attainable length distributions and truncation;
@@ -147,8 +150,8 @@ conditions are:
 - `human_light_edit`: spelling, punctuation, and local clarity edits under a
   written time-and-operation limit;
 - `machine_paraphrase`: one pinned paraphraser and recorded settings;
-- `human_deep_edit`: exploratory only until effort, permissible operations, and
-  the mixed-authorship interpretation are defined.
+- `human_deep_edit`: exploratory mixed-authorship evidence, excluded from
+  binary primary metrics even after its effort and operation rules are frozen.
 
 Every derivative records `parent_document_id` and shares the original
 `source_id`, near-duplicate component, and split. Editing conditions will be
@@ -168,6 +171,11 @@ collection-level quantity check is recorded in
 Gate B uses `generator_eligibility_review_template.md`; its evidence,
 provisional role assignment, version controls, and budget rule are recorded in
 `gate_b_generator_audit.md`.
+
+Gate C is specified by `gate_c_pilot_protocol.md`, with frozen structures in
+`prompt_packet_template.md` and `editing_rubric.md`. It defines the matched
+domains, bilingual prompt blocks, provisional length bands, editing conditions,
+pilot allocation, blinding, and Gate D pass rules.
 
 | Candidate | Proposed role | Current status | Required action before use |
 |---|---|---|---|

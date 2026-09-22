@@ -1,6 +1,6 @@
 # AIDetect Benchmark Protocol
 
-Protocol version: `0.1-draft`
+Protocol version: `0.2-draft`
 Baseline code commit: `25521b6a35d77845fff7f7fb1de09004abd2dcde`
 
 ## Research question
@@ -30,8 +30,8 @@ does not prove authorship, intent, misconduct, or the absence of AI assistance.
 
 - Chinese (`zh`) and English (`en`) text.
 - Human-authored and AI-generated source lineages with documented provenance.
-- Academic, general, application, or professional writing, subject to data
-  availability and licensing.
+- Academic, general, and professional writing, subject to data availability
+  and licensing.
 - Original AI output, human-edited AI output, and machine-paraphrased AI output.
 - Binary AI-versus-human evaluation, calibration, selective prediction, and
   descriptive subgroup analysis.
@@ -48,6 +48,11 @@ does not prove authorship, intent, misconduct, or the absence of AI assistance.
 Ambiguous and mixed-authorship examples may be retained in a separate
 exploratory set, but they must not be silently assigned a binary ground-truth
 label or included in primary metrics.
+
+Application writing is deferred because authentic material raises privacy and
+consent concerns and synthetic applications do not provide a defensible human
+reference class. Gate C domain, prompt, length, editing, pilot, and blinding
+rules are defined in `gate_c_pilot_protocol.md`.
 
 ## Terminology and output semantics
 
