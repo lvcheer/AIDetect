@@ -90,7 +90,7 @@ the following minimum fields:
 
 `candidate_id`, `source`, `record_uri`, `title`, `language`, `subject`,
 `document_type`, `first_deposit_date`, `version_date`, `version_id`,
-`licence`, `licence_evidence_uri`, `peer_review_status`,
+`is_first_version`, `licence`, `licence_evidence_uri`, `peer_review_status`,
 `publisher_pdf_flag`, `related_record_id`, and `screening_decision`.
 
 Apply these rules in order:
@@ -110,3 +110,38 @@ The screening output remains candidate metadata. Passing it does not admit the
 associated text; every selected item still needs the source eligibility review
 template.
 
+## Metadata access audit
+
+The official help pages document interactive browsing, faceted search, and
+record detail pages. The reviewed help, licence, and legal-statement pages do
+not document a public bulk metadata API, OAI-PMH endpoint, or authorised bulk
+export. The legal statement requires lawful and reasonable platform use but
+does not itself grant permission for automated harvesting.
+
+Consequently, the project screening tool is deliberately source-agnostic: it
+validates and screens metadata supplied through an authorised route, but it
+does not scrape ChinaXiv. Before an automated inventory is attempted, the
+project must obtain either official interface documentation or written
+permission from the platform contact listed in its help pages. Manual browsing
+may support small feasibility checks but is not a reproducible formal
+acquisition method.
+
+Sources:
+
+- <https://www.chinaxiv.org/user/help.htm>
+- <https://www.chinaxiv.org/user/license.htm>
+- <https://www.chinaxiv.org/user/law.htm>
+
+## Local screening implementation
+
+The repository provides:
+
+- `candidate_metadata_schema.json` for metadata-only records;
+- `python -m aidetect.candidate_metadata` (or the installed
+  `aidetect-screen-metadata` command) to validate, screen, preserve all
+  decisions, and produce aggregate rejection/eligibility counts.
+
+The tool has no network or text-acquisition code. Its current deterministic
+eligibility rules implement the language, cutoff-date, licence, and publisher-
+PDF gates above. Passing the automated screen remains necessary but not
+sufficient for source admission.

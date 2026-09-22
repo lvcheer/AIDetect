@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lvcheer/AIDetect/benchmark/candidate_metadata_schema.json",
+  "title": "AIDetect benchmark candidate metadata record",
+  "description": "Metadata-only screening record. It does not contain or admit source text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "source",
+    "record_uri",
+    "title",
+    "language",
+    "subject",
+    "document_type",
+    "first_deposit_date",
+    "version_date",
+    "version_id",
+    "is_first_version",
+    "license",
+    "license_evidence_uri",
+    "peer_review_status",
+    "publisher_pdf_flag",
+    "related_record_id",
+    "screening_decision",
+    "exclusion_reasons"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "record_uri": {"type": "string", "format": "uri"},
+    "title": {"type": "string", "minLength": 1},
+    "language": {"type": "string", "enum": ["zh", "en", "other", "unknown"]},
+    "subject": {"type": "string", "minLength": 1},
+    "document_type": {
+      "type": "string",
+      "enum": ["preprint", "accepted_manuscript", "published_article", "unknown"]
+    },
+    "first_deposit_date": {"type": "string", "format": "date"},
+    "version_date": {"type": "string", "format": "date"},
+    "version_id": {"type": "string", "minLength": 1},
+    "is_first_version": {"type": "boolean"},
+    "license": {
+      "type": "string",
+      "enum": [
+        "CC-BY-4.0",
+        "CC0-1.0",
+        "CC-BY-SA-4.0",
+        "CC-BY-NC-SA-4.0",
+        "other",
+        "unknown"
+      ]
+    },
+    "license_evidence_uri": {"type": "string", "format": "uri"},
+    "peer_review_status": {
+      "type": "string",
+      "enum": ["peer_reviewed", "accepted", "awaiting_review", "not_peer_reviewed", "unknown"]
+    },
+    "publisher_pdf_flag": {"type": "boolean"},
+    "related_record_id": {"type": ["string", "null"], "minLength": 1},
+    "screening_decision": {
+      "type": "string",
+      "enum": ["pending", "eligible", "excluded"]
+    },
+    "exclusion_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "non_chinese",
+          "first_deposit_after_cutoff",
+          "version_after_cutoff",
+          "not_first_version",
+          "license_not_allowed",
+          "publisher_pdf"
+        ]
+      },
+      "uniqueItems": true
+    }
+  }
+}
