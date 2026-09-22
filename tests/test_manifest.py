@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from aidetect.manifest import (
+    assign_dry_run,
     assign_splits,
     load_schema,
     main,
@@ -90,6 +91,25 @@ class ManifestValidationTests(unittest.TestCase):
 
 
 class ManifestSplitTests(unittest.TestCase):
+    def test_dry_run_only_accepts_only_pipeline_dry_run_records(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dry_run = make_record(
+                root,
+                "dry-1",
+                "source-dry",
+                "Dry run text.",
+                split="dry_run",
+                evaluation_partition="pipeline_dry_run",
+            )
+
+            assigned = assign_dry_run([dry_run])
+            self.assertEqual(assigned, [dry_run])
+
+            formal = make_record(root, "formal-1", "source-formal", "Formal text.")
+            with self.assertRaisesRegex(ValueError, "only dry_run records"):
+                assign_dry_run([formal])
+
     def test_rejects_too_few_non_held_out_components(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -245,6 +265,62 @@ class ManifestSplitTests(unittest.TestCase):
             hashlib.sha256(output_bytes).hexdigest(),
         )
         self.assertEqual(metadata["held_out_generators"], ["generator-b"])
+
+    def test_cli_writes_dry_run_only_manifest_without_formal_split_options(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "candidate.jsonl"
+            output_path = root / "frozen.jsonl"
+            metadata_path = root / "split_metadata.json"
+            records = [
+                make_record(
+                    root,
+                    "dry-1",
+                    "source-dry-1",
+                    "Dry run human text.",
+                    split="dry_run",
+                    evaluation_partition="pipeline_dry_run",
+                ),
+                make_record(
+                    root,
+                    "dry-2",
+                    "source-dry-2",
+                    "Dry run AI text.",
+                    "generator-a",
+                    split="dry_run",
+                    evaluation_partition="pipeline_dry_run",
+                ),
+            ]
+            input_path.write_text(
+                "".join(json.dumps(record) + "\n" for record in records),
+                encoding="utf-8",
+            )
+
+            exit_code = main(
+                [
+                    "--input",
+                    str(input_path),
+                    "--output",
+                    str(output_path),
+                    "--metadata-output",
+                    str(metadata_path),
+                    "--schema",
+                    str(SCHEMA_PATH),
+                    "--dry-run-only",
+                ]
+            )
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            frozen_records = [
+                json.loads(line)
+                for line in output_path.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(metadata["manifest_mode"], "dry_run_only")
+        self.assertEqual(metadata["assignment_method"], "validated_dry_run_only_v1")
+        self.assertEqual(metadata["held_out_generators"], [])
+        self.assertIsNone(metadata["seed"])
+        self.assertEqual({record["split"] for record in frozen_records}, {"dry_run"})
 
 
 if __name__ == "__main__":

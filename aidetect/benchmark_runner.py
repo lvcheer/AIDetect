@@ -77,7 +77,16 @@ def verify_frozen_manifest(manifest_hash, schema_hash, split_metadata, records):
     if split_metadata.get("schema_sha256") != schema_hash:
         raise ValueError("schema hash does not match split metadata")
     held_out_generators = split_metadata.get("held_out_generators")
-    if not isinstance(held_out_generators, list) or not held_out_generators:
+    if split_metadata.get("manifest_mode") == "dry_run_only":
+        if held_out_generators != []:
+            raise ValueError("dry-run-only split metadata must use no held-out generators")
+        if any(
+            record["split"] != "dry_run"
+            or record["evaluation_partition"] != "pipeline_dry_run"
+            for record in records
+        ):
+            raise ValueError("dry-run-only metadata requires only dry_run records")
+    elif not isinstance(held_out_generators, list) or not held_out_generators:
         raise ValueError("split metadata must list held_out_generators")
     verify_split_integrity(records, set(held_out_generators))
 

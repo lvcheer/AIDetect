@@ -9,7 +9,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
 
 
-SPLITTER_VERSION = "0.1"
+SPLITTER_VERSION = "0.2"
 
 
 def sha256_bytes(content):
@@ -278,6 +278,22 @@ def assign_splits(
     return assigned
 
 
+def assign_dry_run(records):
+    """Validate and copy a manifest containing only dry-run records."""
+    assigned = [dict(record) for record in records]
+    if any(
+        record["split"] != "dry_run"
+        or record["evaluation_partition"] != "pipeline_dry_run"
+        for record in assigned
+    ):
+        raise ValueError(
+            "--dry-run-only accepts only dry_run records with "
+            "evaluation_partition pipeline_dry_run"
+        )
+    verify_split_integrity(assigned, set())
+    return assigned
+
+
 def verify_split_integrity(records, held_out_generators):
     """Reject source, duplicate-cluster, or held-out-generator leakage."""
     source_splits = defaultdict(set)
@@ -343,14 +359,18 @@ def build_parser():
     parser.add_argument("--metadata-output", required=True, type=Path)
     parser.add_argument("--schema", required=True, type=Path)
     parser.add_argument("--text-root", type=Path)
-    parser.add_argument("--seed", required=True, type=int)
-    parser.add_argument("--train-fraction", required=True, type=float)
-    parser.add_argument("--calibration-fraction", required=True, type=float)
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--train-fraction", type=float)
+    parser.add_argument("--calibration-fraction", type=float)
     parser.add_argument(
         "--held-out-generator",
         action="append",
-        required=True,
         help="Generator reserved for test; repeat for multiple generators.",
+    )
+    parser.add_argument(
+        "--dry-run-only",
+        action="store_true",
+        help="Freeze an all-dry-run manifest without formal split options.",
     )
     parser.add_argument(
         "--skip-text-file-checks",
@@ -363,6 +383,22 @@ def build_parser():
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
+    formal_options = (
+        args.seed,
+        args.train_fraction,
+        args.calibration_fraction,
+        args.held_out_generator,
+    )
+    if args.dry_run_only:
+        if any(value is not None for value in formal_options):
+            parser.error(
+                "--dry-run-only cannot be combined with formal split options"
+            )
+    elif any(value is None for value in formal_options):
+        parser.error(
+            "formal splitting requires --seed, --train-fraction, "
+            "--calibration-fraction, and --held-out-generator"
+        )
     resolved_paths = {
         args.input.resolve(),
         args.output.resolve(),
@@ -381,13 +417,26 @@ def main(argv=None):
             text_root=text_root,
             verify_text_files=not args.skip_text_file_checks,
         )
-        assigned = assign_splits(
-            records,
-            seed=args.seed,
-            train_fraction=args.train_fraction,
-            calibration_fraction=args.calibration_fraction,
-            held_out_generators=args.held_out_generator,
-        )
+        if args.dry_run_only:
+            assigned = assign_dry_run(records)
+            manifest_mode = "dry_run_only"
+            assignment_method = "validated_dry_run_only_v1"
+            held_out_generators = []
+            test_fraction = None
+        else:
+            assigned = assign_splits(
+                records,
+                seed=args.seed,
+                train_fraction=args.train_fraction,
+                calibration_fraction=args.calibration_fraction,
+                held_out_generators=args.held_out_generator,
+            )
+            manifest_mode = "formal"
+            assignment_method = "sha256_seeded_source_component_order_v1"
+            held_out_generators = sorted(set(args.held_out_generator))
+            test_fraction = round(
+                1 - args.train_fraction - args.calibration_fraction, 12
+            )
         validate_manifest_records(
             assigned,
             schema,
@@ -397,14 +446,13 @@ def main(argv=None):
         output_hash = write_jsonl(args.output, assigned)
         metadata = {
             "splitter_version": SPLITTER_VERSION,
-            "assignment_method": "sha256_seeded_source_component_order_v1",
+            "manifest_mode": manifest_mode,
+            "assignment_method": assignment_method,
             "seed": args.seed,
             "train_fraction": args.train_fraction,
             "calibration_fraction": args.calibration_fraction,
-            "test_fraction": round(
-                1 - args.train_fraction - args.calibration_fraction, 12
-            ),
-            "held_out_generators": sorted(set(args.held_out_generator)),
+            "test_fraction": test_fraction,
+            "held_out_generators": held_out_generators,
             "input_manifest_sha256": input_hash,
             "schema_sha256": schema_hash,
             "output_manifest_sha256": output_hash,

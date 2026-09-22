@@ -153,6 +153,21 @@ python -m aidetect.manifest \
 metadata-only manifest 时可显式使用 `--skip-text-file-checks`；此选项不会跳过
 schema、ID、lineage、哈希唯一性或无泄漏划分检查。
 
+仅验证端到端管线的小型 manifest 不需要伪造正式划分参数。此时所有输入记录必须
+已标为 `dry_run/pipeline_dry_run`，使用：
+
+```bash
+python -m aidetect.manifest \
+  --input benchmark/dry_run/candidate_manifest.jsonl \
+  --output benchmark/dry_run/frozen_manifest.jsonl \
+  --metadata-output benchmark/dry_run/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --dry-run-only
+```
+
+`--dry-run-only` 不能与 seed、划分比例或 held-out generator 参数混用，其输出只
+用于管线验证，不得用于正式性能结论。
+
 ### Benchmark runner
 
 runner 只接受与 split metadata 哈希一致的 frozen manifest。模型 revision 和代码

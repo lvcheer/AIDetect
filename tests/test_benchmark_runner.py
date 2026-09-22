@@ -180,6 +180,31 @@ class BenchmarkRecordTests(unittest.TestCase):
                 [],
             )
 
+    def test_dry_run_only_manifest_does_not_require_held_out_generator(self):
+        records = [
+            {
+                "document_id": "dry-1",
+                "source_id": "source-dry",
+                "human_or_ai": "human",
+                "generator": None,
+                "near_duplicate_cluster_id": None,
+                "split": "dry_run",
+                "evaluation_partition": "pipeline_dry_run",
+            }
+        ]
+
+        verify_frozen_manifest(
+            "manifest-hash",
+            "schema-hash",
+            {
+                "manifest_mode": "dry_run_only",
+                "output_manifest_sha256": "manifest-hash",
+                "schema_sha256": "schema-hash",
+                "held_out_generators": [],
+            },
+            records,
+        )
+
 
 class BenchmarkRunnerCliTests(unittest.TestCase):
     def test_cli_writes_auditable_results_without_model_downloads(self):
