@@ -161,7 +161,9 @@ code. Approval applies at document or source-subset level, not merely at a
 dataset name.
 
 Gate A reviews use `source_eligibility_review_template.md`; the initial
-Chinese-source findings are recorded in `gate_a_source_audit.md`.
+Chinese-source findings are recorded in `gate_a_source_audit.md`, and the
+collection-level quantity check is recorded in
+`gate_a_metadata_inventory.md`.
 
 | Candidate | Proposed role | Current status | Required action before use |
 |---|---|---|---|

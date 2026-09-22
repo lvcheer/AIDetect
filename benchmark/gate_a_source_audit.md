@@ -1,11 +1,14 @@
 # Gate A — Initial Lawful-Source Audit
 
-Audit version: `0.2-draft`
+Audit version: `0.3-draft`
 
 Audit date: `2026-09-22`
 
 Scope: official-source and licence review only. No corpus text was downloaded,
 extracted, or admitted by this audit.
+
+The collection-level quantity check is recorded separately in
+`gate_a_metadata_inventory.md`.
 
 ## Decision vocabulary
 
@@ -120,3 +123,10 @@ eligible pool is large and diverse enough. If it is not, the project must
 reduce the confirmatory scope, obtain permission, or make a separate
 non-commercial corpus decision rather than weakening the human-reference
 definition.
+
+The initial metadata-only inventory found a 2017–2021 ChinaXiv candidate pool
+of `13,179` unfiltered records and an expected `30–35` Chinese articles from
+the peer-reviewed *Language and Linguistics* stream. This is sufficient to
+justify a metadata-screening pilot, but not to claim that formal floors are
+met. Gate A remains partially open pending joint language/licence/version/type
+filtering and subject-balance counts.
