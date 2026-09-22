@@ -1,0 +1,26 @@
+{
+  "assignment_method": "validated_dry_run_only_v1",
+  "calibration_fraction": null,
+  "held_out_generators": [],
+  "input_manifest_sha256": "24ae4dd0140ee8e97fbdcbc5cb7faae9fe6c08e80a99d7e73f895bf2a0b7377d",
+  "leakage_component_count": 6,
+  "leakage_components_by_split": {
+    "dry_run": 6
+  },
+  "manifest_mode": "dry_run_only",
+  "output_manifest_sha256": "cd88bd9d547fba7c90ec7e5f62dc0cfdc4da422d530a1773f978bb7b84e84794",
+  "record_count": 8,
+  "records_by_evaluation_partition": {
+    "pipeline_dry_run": 8
+  },
+  "records_by_split": {
+    "dry_run": 8
+  },
+  "schema_sha256": "575ea539b35e0ccf23893956efb4993cb29e78cd5dae25236f147beae1501a9a",
+  "seed": null,
+  "source_count": 6,
+  "splitter_version": "0.2",
+  "test_fraction": null,
+  "text_files_verified": true,
+  "train_fraction": null
+}
