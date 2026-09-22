@@ -160,6 +160,9 @@ This register distinguishes the licence on data from the licence on repository
 code. Approval applies at document or source-subset level, not merely at a
 dataset name.
 
+Gate A reviews use `source_eligibility_review_template.md`; the initial
+Chinese-source findings are recorded in `gate_a_source_audit.md`.
+
 | Candidate | Proposed role | Current status | Required action before use |
 |---|---|---|---|
 | Project Gutenberg | English general/historical human material | conditional | verify each work's internal rights notice and UK/local copyright status; remove licence/trademark wrapper from evaluated prose; retain landing-page provenance |
@@ -264,4 +267,3 @@ The next planning decisions are deliberately left open:
    counts;
 5. whether `human_light_edit` and `machine_paraphrase` enter the first formal
    release or a later robustness release.
-
