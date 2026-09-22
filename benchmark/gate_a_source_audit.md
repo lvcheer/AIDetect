@@ -1,6 +1,6 @@
 # Gate A — Initial Lawful-Source Audit
 
-Audit version: `0.1-draft`
+Audit version: `0.2-draft`
 
 Audit date: `2026-09-22`
 
@@ -29,6 +29,10 @@ No source in this document is approved for the frozen final test.
 | Mainland Chinese government and ministry web pages as a general collection | `zh/professional/human` | Official sites show inconsistent terms: the Ministry of Justice prohibits reuse of its copyrighted works without written permission, while other ministries impose source-specific rules | **Excluded as a blanket source** | “Government website” is not a licence. A page may be reconsidered only with explicit reuse permission or a narrow statutory exclusion reviewed separately |
 | Mainland statutes and official legal instruments | possible `zh/professional` material | The Copyright Law and official sources distinguish legal instruments from ordinary authored web content | **Pending/exploratory only** | Legal instruments have atypical formulaic style and may confound detection; obtain a scoped legal review and keep them separate from ordinary professional prose |
 | Chinese Wikisource works with verified work-level public-domain/free status | `zh/general/human` | Site contributions use CC BY-SA 4.0/GFDL and work pages carry source-specific rights information | **Conditional pilot approval** | Verify each work, edition, author death date/local status, transcription contribution terms, and attribution/share-alike duties; report historical text separately |
+| Academia Sinica *Language and Linguistics / 語言暨語言學*, Chinese issues | `zh/academic/human` | The institutional TOAJ record states that all articles are CC BY 4.0, the July issue is Chinese, articles are original rather than translations, and the journal uses rigorous peer review | **Conditional pilot approval** | Prefer Chinese issues first published before widespread generative-AI use; verify the licence, language, article type, revision, and attribution item by item; this linguistics source cannot represent all academic fields |
+| ChinaXiv Chinese manuscripts individually marked CC BY 4.0 or CC0 | `zh/academic/human` | The Chinese Academy of Sciences platform permits several licences and displays the selected licence on each versioned record | **Conditional pilot approval** | Admit only item pages explicitly marked CC BY/CC0, not a platform-wide assumption; prefer versions deposited before `2022-11-30`; exclude publisher PDFs and post-2022 revisions; report preprints separately from peer-reviewed prose |
+| *微纳电子技术*, articles from its CC BY period | possible `zh/academic/human` | The journal's official page applies CC BY and provides Chinese peer-reviewed technical articles | **Legally promising; exploratory pending provenance review** | Its declared OA period starts in 2024, so absence of generative-AI writing assistance cannot be presumed; verify each article and do not use as a binary-human core without stronger provenance evidence |
+| *Prestress Technology* Chinese articles | possible `zh/academic/human` | The official journal policy says articles are CC BY 4.0 and permits Chinese full text | **Pending** | Confirm that the current licence covers each archived article and its exact version; older records must not inherit a later policy by assumption; contemporary articles retain AI-assistance ambiguity |
 
 ## Evidence register
 
@@ -68,6 +72,28 @@ No source in this document is approved for the frozen final test.
    English translations of Chinese-language scholarship, so the published
    language must be checked rather than inferred from subject matter:
    <https://writingchinesejournal.org/about>.
+5. Taiwan Open Access Journals / Academia Sinica, *Language and Linguistics*.
+   The institutional record states that all articles use CC BY 4.0, identifies
+   one Chinese issue per year, and says the journal does not publish
+   translations:
+   <https://toaj.stpi.niar.org.tw/index/journal/4b1141f97ce46933017ce469b63f0099>.
+6. ChinaXiv, licence information. Submitters can select CC BY 4.0, CC BY-SA
+   4.0, CC BY-NC-SA 4.0, CC0, or another stated licence, so eligibility must be
+   checked on each versioned item page:
+   <https://www.chinaxiv.org/user/license.htm>.
+7. ChinaXiv item pages display both version history and the selected licence;
+   this record is an example of the required evidence pattern, not an admitted
+   benchmark item:
+   <https://chinaxiv.org/abs/202212.00173?locale=en>.
+8. *微纳电子技术*, official open-access policy. The journal says that its
+   articles from the 2024 OA period use CC BY and undergo double-anonymous peer
+   review:
+   <https://bdtq.cbpt.cnki.net/portal/journal/portal/client/news/b31924dd6b8be93047b7ba4414242e23>.
+9. *Prestress Technology*, official copyright and author policy. It states CC
+   BY 4.0, while the submission guide confirms that Chinese full-text articles
+   are accepted:
+   <https://ptmc.tongji.edu.cn/yyljs/site/menus/20240811161558001> and
+   <https://ptmc.tongji.edu.cn/yyljs/site/menu/20221214104459001>.
 
 ### General Chinese
 
@@ -83,13 +109,14 @@ Gate A is **partially satisfied for pilot planning**, not closed:
   document-level OGL-licensed official translations;
 - Chinese general historical material remains conditionally feasible;
 - Chinese academic sources exist, but the strongest verified candidates are
-  non-commercial. They cannot be admitted until the project chooses a corpus
-  release policy compatible with CC BY-NC;
+  no longer limited to non-commercial licences: *Language and Linguistics* and
+  item-level CC BY/CC0 ChinaXiv records provide a plausible open route;
 - ordinary mainland government webpages are not approved as a blanket source.
 
-The next Gate A decision is therefore a release-policy choice: either permit a
-separately licensed non-commercial text corpus, seek a sufficiently broad
-CC BY/CC0 Chinese academic source, or obtain direct permission. Metadata and
-aggregate detector results may remain under a different project licence, but
-licence boundaries must be explicit.
-
+The preferred core policy is now to use CC BY/CC0 academic text and keep
+CC BY-NC sources outside the first formal release. Gate A remains open until a
+metadata-only inventory shows that the pre-ChatGPT, Chinese, item-level
+eligible pool is large and diverse enough. If it is not, the project must
+reduce the confirmatory scope, obtain permission, or make a separate
+non-commercial corpus decision rather than weakening the human-reference
+definition.
