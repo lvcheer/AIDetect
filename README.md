@@ -1,4 +1,274 @@
+<a id="english"></a>
+
+# AI Text Detector
+
+[English](#english) | [中文](#中文)
+
+A fully **local AI-text detection tool** supporting Chinese and English. No internet connection is required, and your text is never uploaded to a server.
+
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+---
+
+## Features
+
+- **Paragraph-level analysis**: evaluates individual paragraphs while preserving their full context for more reliable results
+- **Whole-document scoring**: scores the full document first, then provides a more detailed paragraph-level analysis
+- **Colour highlighting**: 🔴 highly likely AI / 🟡 possibly mixed / 🟢 likely human-written
+- **Adjustable sensitivity**: set the decision threshold from 10% to 90%; lower values are more stringent
+- **Perplexity-assisted detection**: combines GPT-2 perplexity with classifier scores for a second analytical signal
+- **Five detector models**: covers Chinese, English, and multilingual use cases
+- **CSV export**: exports detection results as a spreadsheet-compatible file
+- **Fully offline**: all inference runs locally and your data stays on your computer
+
+---
+
+## Download
+
+Download the following files from the [latest release](https://github.com/lvcheer/AIDetect/releases/latest):
+
+| File | Description |
+|------|-------------|
+| `AI检测工具-Windows.exe` | Windows application |
+| `AI检测工具-mac.zip` | macOS application |
+| `models.zip` | Model files shared by Windows and macOS; download once |
+
+> For detailed instructions, see the [User Guide (Chinese)](用户使用指南.md).
+
+### Windows
+
+1. Create a folder, for example `AI检测工具` on your desktop.
+2. Put `AI检测工具-Windows.exe` in that folder.
+3. Extract `models.zip` and put the resulting `models` folder alongside the executable.
+4. Double-click the `.exe` file.
+
+```text
+AI检测工具/
+├── AI检测工具-Windows.exe
+└── models/
+```
+
+### macOS
+
+1. Create a folder and extract `AI检测工具-mac.zip` to obtain the `.app`.
+2. Extract `models.zip` and put the `models` folder alongside the `.app`.
+3. The first time you launch it, **right-click the `.app` → Open → Open** to pass Gatekeeper.
+
+```text
+AI检测工具/
+├── AI检测工具-mac.app
+└── models/
+```
+
+---
+
+## Models
+
+| Display name | Hugging Face model | Recommended language |
+|--------------|--------------------|----------------------|
+| Chinese First (RoBERTa) | `Hello-SimpleAI/chatgpt-detector-roberta-chinese` | Chinese |
+| Chinese AIGC v2 | `yuchuantian/AIGC_detector_zhv2` | Chinese |
+| English General (OpenAI Detector) | `roberta-base-openai-detector` | English |
+| English TMR Detector | `Oxidane/tmr-ai-text-detector` | English |
+| Multilingual ChatGPT Detector | `Hello-SimpleAI/chatgpt-detector-roberta` | Chinese and English |
+
+Optional perplexity model: `uer/gpt2-chinese-cluecorpussmall` (downloaded automatically when enabled; approximately 400 MB).
+
+---
+
+## Local Development
+
+### Requirements
+
+- Python 3.11+
+- macOS, Windows, or Linux
+
+### Quick Start
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/lvcheer/AIDetect.git
+cd AIDetect
+
+# 2. Create a virtual environment (Python 3.11 is required)
+python3.11 -m venv .venv311
+source .venv311/bin/activate   # Windows: .venv311\Scripts\activate
+
+# 3. Install the project and its dependencies
+pip install -e .
+
+# 4. Download the classifier models (first run only; approximately 1.5 GB)
+python download_models.py
+
+# 5. Run the application
+python MainCode.py
+```
+
+Run the tests:
+
+```bash
+python3.11 -m unittest discover -s tests -v
+```
+
+To use pytest, install the test dependencies with `pip install -e ".[test]"`.
+
+### Batch CLI
+
+Input may be JSONL or CSV. Each record must contain a unique `document_id` and a non-empty `text` value. Each run uses one classifier:
+
+```bash
+python -m aidetect \
+  --input benchmark/input.jsonl \
+  --output benchmark/output.jsonl \
+  --model roberta-base-openai-detector
+```
+
+After installation, you can use the `aidetect` command directly with the same arguments as `python -m aidetect`.
+
+Add `--perplexity` to enable the existing GPT-2 perplexity feature. Output includes the model source, device, raw classifier score, heuristic feature scores, and fused score. These scores are uncalibrated and must not be interpreted as probabilities.
+
+### Benchmark Manifest Splitting
+
+Candidate manifests use JSONL, with each line conforming to `benchmark/dataset_manifest_schema.json`. The input `split` and `evaluation_partition` values are valid placeholders. The script validates records, text SHA-256 values, exact duplicates, and parent-child lineages before replacing those fields. The random seed, split proportions, and held-out generator must be specified explicitly. Proportions are calculated over indivisible source and near-duplicate components. Formal non-held-out data requires at least three components so that the train, calibration, and in-distribution test sets are all non-empty:
+
+```bash
+python -m aidetect.manifest \
+  --input benchmark/candidate_manifest.jsonl \
+  --output benchmark/frozen_manifest.jsonl \
+  --metadata-output benchmark/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --seed 2026 \
+  --train-fraction 0.6 \
+  --calibration-fraction 0.2 \
+  --held-out-generator generator-id
+```
+
+Relative `text_path` values are resolved from the directory containing the input manifest. For a metadata-only manifest whose text cannot be published, use `--skip-text-file-checks` explicitly. This option does not skip schema, ID, lineage, unique-hash, or leakage-safe split validation.
+
+A small manifest used only for end-to-end pipeline validation does not need fabricated formal split parameters. In this mode, every input record must already be labelled `dry_run/pipeline_dry_run`:
+
+```bash
+python -m aidetect.manifest \
+  --input benchmark/dry_run/candidate_manifest.jsonl \
+  --output benchmark/dry_run/frozen_manifest.jsonl \
+  --metadata-output benchmark/dry_run/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --dry-run-only
+```
+
+`--dry-run-only` cannot be combined with a seed, split proportions, or held-out generator. Its output is strictly for pipeline validation and must not be used to support formal performance claims.
+
+### Benchmark Runner
+
+The runner accepts only a frozen manifest whose hash matches the split metadata. Model revisions and the code commit must be full 40-character commit hashes. The AI label index and maximum token length must also be confirmed explicitly:
+
+```bash
+python -m aidetect.benchmark_runner \
+  --manifest benchmark/frozen_manifest.jsonl \
+  --split-metadata benchmark/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --output benchmark/results_raw.jsonl \
+  --run-metadata-output benchmark/run_metadata.json \
+  --run-id baseline-model-1 \
+  --code-commit <40-character-git-commit> \
+  --model roberta-base-openai-detector \
+  --model-revision <40-character-model-commit> \
+  --ai-label-index 1 \
+  --max-length 512 \
+  --include-split dry_run
+```
+
+After installation, `python -m aidetect.benchmark_runner` can be replaced with `aidetect-benchmark`. Per-sample results contain the complete class-score vector, raw AI score, character and token lengths, truncation direction, elapsed time, device, and error status. They do not contain the source text or a manually fused score. When classification fails, the raw score is `null`, never zero. `--include-split` is required and repeatable, preventing dry-run and formal partitions from being mixed accidentally. Add `--perplexity --perplexity-revision <commit>` to record perplexity as a separate feature.
+
+### Project Structure
+
+```text
+AIDetect/
+├── MainCode.py              # GUI entry point
+├── pyproject.toml           # Project metadata, dependencies, and CLI entry points
+├── aidetect/                # Reusable inference, feature, fusion, schema, and CLI code
+├── benchmark/               # Benchmark protocol, manifest schemas, and metrics
+├── tests/                   # Unit tests
+├── download_models.py       # Downloads all classifier models locally
+├── 用户使用指南.md           # End-user guide in Chinese
+├── setup_and_run.bat        # One-click Windows launcher
+├── models/                  # Local model files (not committed to Git)
+├── local-build/
+│   └── build.sh             # Local macOS packaging script
+└── .github/
+    └── workflows/
+        └── build-windows.yml  # Automated GitHub Actions builds
+```
+
+### Local Packaging on macOS
+
+```bash
+python download_models.py   # If the models have not been downloaded
+./local-build/build.sh
+# Output: local-build/dist/AI检测工具-mac分享包.zip
+```
+
+### Automated Builds with GitHub Actions
+
+Pushing to `main` triggers GitHub Actions to build a Windows `.exe` and macOS `.zip`, then publish them to Releases.
+
+The workflow contains four jobs:
+
+- `cleanup-release`: removes the previous release
+- `build-models`: packages the cross-platform `models.zip`
+- `build-windows`: packages the Windows `.exe`
+- `build-macos`: packages the macOS `.app.zip`
+
+---
+
+## Contributing
+
+Contributions are welcome. Here are some possible improvements for different experience levels:
+
+### Beginner Friendly
+
+- [ ] Improve the UI, including layout and dark mode
+- [ ] Add support for more languages
+- [ ] Improve error messages
+
+### Intermediate
+
+- [ ] Add batch detection for uploaded TXT or DOCX files
+- [ ] Visualise detection-score distributions
+- [ ] Add detection history
+
+### Advanced
+
+- [ ] Integrate additional open detector models
+- [ ] Add GPU acceleration with CUDA or MPS
+- [ ] Improve Chinese sentence segmentation
+- [ ] Improve language coverage for the perplexity model, which currently targets Chinese
+
+### How to Contribute
+
+1. Fork this repository.
+2. Create a feature branch: `git checkout -b feature/your-feature-name`.
+3. Commit your changes: `git commit -m 'feat: describe your feature'`.
+4. Push the branch: `git push origin feature/your-feature-name`.
+5. Open a Pull Request.
+
+Ideas and questions are welcome in [Issues](https://github.com/lvcheer/AIDetect/issues).
+
+---
+
+## License
+
+This project is released under the [MIT License](LICENSE).
+
+---
+
+<a id="中文"></a>
+
 # AI 文本检测工具
+
+[English](#english) | [中文](#中文)
 
 一款完全**本地运行**的 AI 文本检测工具，支持中英文，无需联网，文字不会上传到任何服务器。
 
