@@ -92,8 +92,8 @@ cd AIDetect
 python3.11 -m venv .venv311
 source .venv311/bin/activate   # Windows: .venv311\Scripts\activate
 
-# 3. 安装依赖
-pip install torch transformers pandas matplotlib
+# 3. 安装项目及依赖
+pip install -e .
 
 # 4. 下载分类器模型（首次需要，约 1.5GB）
 python download_models.py
@@ -102,11 +102,110 @@ python download_models.py
 python MainCode.py
 ```
 
+运行测试：
+
+```bash
+python3.11 -m unittest discover -s tests -v
+```
+
+如需使用 pytest，可安装测试依赖：`pip install -e ".[test]"`。
+
+### 批量 CLI
+
+输入文件可以是 JSONL 或 CSV，每条记录必须包含唯一的 `document_id` 和
+非空 `text`。一次运行使用一个分类器：
+
+```bash
+python -m aidetect \
+  --input benchmark/input.jsonl \
+  --output benchmark/output.jsonl \
+  --model roberta-base-openai-detector
+```
+
+安装项目后也可以直接使用 `aidetect` 命令，参数与 `python -m aidetect` 相同。
+
+添加 `--perplexity` 可启用现有 GPT-2 困惑度特征。输出包含模型来源、
+设备、raw classifier score、启发式特征分数和 fused score。这些分数尚未
+校准，不是概率。
+
+### Benchmark manifest 划分
+
+候选 manifest 使用 JSONL，每行须符合
+`benchmark/dataset_manifest_schema.json`。输入中的 `split` 和
+`evaluation_partition` 是合法占位值；脚本校验记录、文本 SHA-256、精确重复、
+父子 lineage 后覆盖这两个字段。随机种子、划分比例及 held-out generator 必须
+显式指定。比例按不可拆分的 source/近重复组件计算；正式非 held-out 数据至少
+需要三个组件，以保证 train、calibration 和 in-distribution test 均非空：
+
+```bash
+python -m aidetect.manifest \
+  --input benchmark/candidate_manifest.jsonl \
+  --output benchmark/frozen_manifest.jsonl \
+  --metadata-output benchmark/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --seed 2026 \
+  --train-fraction 0.6 \
+  --calibration-fraction 0.2 \
+  --held-out-generator generator-id
+```
+
+相对 `text_path` 默认基于输入 manifest 所在目录解析。仅验证不便公开文本的
+metadata-only manifest 时可显式使用 `--skip-text-file-checks`；此选项不会跳过
+schema、ID、lineage、哈希唯一性或无泄漏划分检查。
+
+仅验证端到端管线的小型 manifest 不需要伪造正式划分参数。此时所有输入记录必须
+已标为 `dry_run/pipeline_dry_run`，使用：
+
+```bash
+python -m aidetect.manifest \
+  --input benchmark/dry_run/candidate_manifest.jsonl \
+  --output benchmark/dry_run/frozen_manifest.jsonl \
+  --metadata-output benchmark/dry_run/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --dry-run-only
+```
+
+`--dry-run-only` 不能与 seed、划分比例或 held-out generator 参数混用，其输出只
+用于管线验证，不得用于正式性能结论。
+
+### Benchmark runner
+
+runner 只接受与 split metadata 哈希一致的 frozen manifest。模型 revision 和代码
+commit 必须使用完整的 40 位 commit，AI 标签索引及最大 token 长度也必须显式
+确认：
+
+```bash
+python -m aidetect.benchmark_runner \
+  --manifest benchmark/frozen_manifest.jsonl \
+  --split-metadata benchmark/split_metadata.json \
+  --schema benchmark/dataset_manifest_schema.json \
+  --output benchmark/results_raw.jsonl \
+  --run-metadata-output benchmark/run_metadata.json \
+  --run-id baseline-model-1 \
+  --code-commit <40-character-git-commit> \
+  --model roberta-base-openai-detector \
+  --model-revision <40-character-model-commit> \
+  --ai-label-index 1 \
+  --max-length 512 \
+  --include-split dry_run
+```
+
+安装项目后可将 `python -m aidetect.benchmark_runner` 替换为
+`aidetect-benchmark`。逐样本结果包含完整类别分数、raw AI score、字符和 token
+长度、截断方向、耗时、设备及错误状态，但不包含原文或手工融合分数。分类器失败
+时 raw score 为 `null`，不会替换为零。`--include-split` 为必填参数，可重复使用，
+从而避免意外混合 dry-run 与正式分区；添加
+`--perplexity --perplexity-revision <commit>` 可单独记录困惑度特征。
+
 ### 项目结构
 
 ```
 AIDetect/
-├── MainCode.py              # 主程序（GUI + 检测逻辑）
+├── MainCode.py              # GUI 入口
+├── pyproject.toml           # 项目元数据、依赖和 CLI 入口
+├── aidetect/                # 可复用推理、特征、融合、schema 和 CLI
+├── benchmark/               # benchmark 协议、manifest schema 和指标
+├── tests/                   # 单元测试
 ├── download_models.py       # 下载所有分类器模型到本地
 ├── 用户使用指南.md           # 面向普通用户的操作说明
 ├── setup_and_run.bat        # Windows 一键启动脚本
@@ -149,7 +248,7 @@ python download_models.py   # 如果还没下载模型
 
 ### 中级难度
 - [ ] 支持批量检测（上传 txt / docx 文件）
-- [ ] 检测结果可视化（图表展示 AI 概率分布）
+- [ ] 检测结果可视化（图表展示 AI 检测分数分布）
 - [ ] 添加检测历史记录功能
 
 ### 进阶方向
@@ -171,4 +270,5 @@ python download_models.py   # 如果还没下载模型
 ---
 
 ## License
-KIYA
+
+本项目采用 [MIT License](LICENSE)。

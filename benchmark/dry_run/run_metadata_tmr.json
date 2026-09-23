@@ -1,0 +1,65 @@
+{
+  "completed_at_utc": "2026-09-22T10:10:25.478688+00:00",
+  "configuration": {
+    "ai_label_index": 1,
+    "ai_label_name": "ai",
+    "code_commit": "517c1b7786033fbd5d6617e7e01a0aae843aee88",
+    "immutable_model_revision": "0ceddea903015ef99cbaa040a4d8a216aed9c683",
+    "immutable_perplexity_revision": null,
+    "included_splits": [
+      "dry_run"
+    ],
+    "manifest_sha256": "cd88bd9d547fba7c90ec7e5f62dc0cfdc4da422d530a1773f978bb7b84e84794",
+    "max_length": 512,
+    "model_artifact_sha256": null,
+    "model_id": "Oxidane/tmr-ai-text-detector",
+    "perplexity_model_id": null,
+    "requested_model_revision": "0ceddea903015ef99cbaa040a4d8a216aed9c683",
+    "requested_perplexity_revision": null,
+    "run_id": "dry-run-tmr-20260922",
+    "runner_version": "0.1",
+    "score_direction": "higher_is_more_ai_like",
+    "truncation_side": "right"
+  },
+  "configuration_sha256": "35e579bb117b6b964d64a8e081f54c3a56491763250b31f7f3125375a5ede98e",
+  "manifest_sha256": "cd88bd9d547fba7c90ec7e5f62dc0cfdc4da422d530a1773f978bb7b84e84794",
+  "model": {
+    "ai_label_index": 1,
+    "ai_label_name": "ai",
+    "artifact_sha256": null,
+    "class_labels": {
+      "0": "human",
+      "1": "ai"
+    },
+    "device": "cpu",
+    "immutable_revision": "0ceddea903015ef99cbaa040a4d8a216aed9c683",
+    "model_id": "Oxidane/tmr-ai-text-detector",
+    "requested_revision": "0ceddea903015ef99cbaa040a4d8a216aed9c683",
+    "resolved_revision": "0ceddea903015ef99cbaa040a4d8a216aed9c683",
+    "source": "Oxidane/tmr-ai-text-detector",
+    "tokenizer_class": "RobertaTokenizerFast",
+    "tokenizer_model_max_length": 512,
+    "truncation_side": "right"
+  },
+  "perplexity_model": null,
+  "record_count": 8,
+  "records_by_status": {
+    "success": 8
+  },
+  "results_sha256": "4644124543815b8d6dedea39a96d96c7d64a319e7baafd13db9c75d0af9f7b72",
+  "run_metadata_schema_version": "0.1",
+  "runtime_environment": {
+    "packages": {
+      "jsonschema": "4.26.0",
+      "matplotlib": "3.11.2",
+      "pandas": "2.3.3",
+      "torch": "2.14.0",
+      "transformers": "4.57.6"
+    },
+    "platform": "macOS-15.7.9-arm64-arm-64bit",
+    "python": "3.11.15 (main, Mar  3 2026, 00:52:57) [Clang 17.0.0 (clang-1700.6.3.2)]"
+  },
+  "schema_sha256": "575ea539b35e0ccf23893956efb4993cb29e78cd5dae25236f147beae1501a9a",
+  "split_metadata_sha256": "7790ddff21f6bb154fc104c2dea314897bd5c0df78cd643d41a8215b87a41397",
+  "started_at_utc": "2026-09-22T10:10:21.806140+00:00"
+}

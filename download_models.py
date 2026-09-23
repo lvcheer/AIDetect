@@ -9,21 +9,15 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import os
 
-MODEL_LIST = {
-    "中文优先（RoBERTa）":        "Hello-SimpleAI/chatgpt-detector-roberta-chinese",
-    "中文新版（AIGC v2）":         "yuchuantian/AIGC_detector_zhv2",
-    "英文通用（OpenAI Detector）": "roberta-base-openai-detector",
-    "英文新版（TMR Detector）":    "Oxidane/tmr-ai-text-detector",
-    "多语言（ChatGPT Detector）":  "Hello-SimpleAI/chatgpt-detector-roberta",
-}
+from aidetect.models import MODEL_REGISTRY, local_model_path
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
 
 
 def download_all():
     os.makedirs(MODELS_DIR, exist_ok=True)
-    for display_name, model_id in MODEL_LIST.items():
-        local_path = os.path.join(MODELS_DIR, model_id.replace("/", "__"))
+    for display_name, model_id in MODEL_REGISTRY.items():
+        local_path = local_model_path(MODELS_DIR, model_id)
         if os.path.exists(local_path):
             print(f"[跳过] {display_name} 已存在：{local_path}")
             continue

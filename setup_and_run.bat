@@ -10,7 +10,7 @@ echo.
 :: 检查 Python 是否已安装
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [错误] 未检测到 Python，请先安装 Python 3.10 或以上版本：
+    echo [错误] 未检测到 Python，请先安装 Python 3.11 或以上版本：
     echo   下载地址：https://www.python.org/downloads/
     echo   安装时请勾选 "Add Python to PATH"
     pause
@@ -18,7 +18,7 @@ if errorlevel 1 (
 )
 
 echo [1/3] Python 已检测到，安装依赖库...
-pip install torch transformers pandas matplotlib --quiet
+pip install . --quiet
 if errorlevel 1 (
     echo [错误] 依赖安装失败，请检查网络连接后重试。
     pause

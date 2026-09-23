@@ -33,7 +33,7 @@ jobs:
           python-version: "3.11"
 
       - name: 安装依赖
-        run: pip install transformers torch
+        run: pip install .
 
       - name: 下载所有模型
         run: python download_models.py
@@ -99,7 +99,7 @@ jobs:
       - name: 安装依赖
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install transformers pandas matplotlib pyinstaller
+          pip install . pyinstaller
 
       - name: 打包为 .exe（不含模型）
         run: |
@@ -126,7 +126,7 @@ jobs:
           python-version: "3.11"
 
       - name: 安装依赖
-        run: pip install torch transformers pandas matplotlib pyinstaller
+        run: pip install . pyinstaller
 
       - name: 打包为 .app（不含模型）
         run: |
